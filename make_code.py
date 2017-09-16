@@ -23,8 +23,8 @@ DictWithAllTypes = {
     "uint8_t":      "_u8",
     "uint8":        "_u8", 
     "uint16_t":     "_u16",
-    "int8_t":       '_i8',
-    "int8":         '_i8',
+    " int8_t":       '_i8',
+    " int8":         '_i8',
     "boolean_t":    "_bo",
     "bool_t":       "_bo",
 }
@@ -79,6 +79,13 @@ class ClassToAnalyseCfile:
         elif '#' in line:
             line=line[:line.find('#')]
         return(line)    
+     
+        
+    def DecodeCline(self,line):
+        """ method to decode line """
+        
+        
+        
         
     def CorrectAllNames(self):
         fileHandler_tmp = open(self.filename+"_ch","w")
@@ -91,48 +98,53 @@ class ClassToAnalyseCfile:
             #if self.NextLineIsCommented is False:    
             #    print(" before commented \n",line)
                 
-            line = self.CheckWhetherLineCommented(line)
+            line_without_comment = self.CheckWhetherLineCommented(line)
             print(line,end='')
             #if self.NextLineIsCommented is False:    
             #    print("after commented \n",line)
                 
             if self.NextLineIsCommented is True:
                 print(line,end='')
-                line = self.CheckWhetherLineCommented(line)
+                line_without_comment = self.CheckWhetherLineCommented(line)
                 #print(" i Am still in commented block")
+                fileHandler_tmp.write(line)
                 continue
             
             if "#include" in line:
                 print(line,end='')
+                fileHandler_tmp.write(line)
                 continue
             
-            if len(line.strip())<1:
+            if len(line_without_comment.strip())<1:
                 #print("empty line")
+                fileHandler_tmp.write(line)
                 continue
             
             if (';' in line) :
-                tab1 = line.split()
+                tab1 = line_without_comment.split()
+                
                 print(" SPLITED : ",tab1,end='')
-                      #DictWithAllTypes.keys())
+                
+                for var_is_already in dict_of_Variables_to_change.keys():
+                    if var_is_already in line:
+                        NextValue = True
+                        line = line.replace(var_is_already, dict_of_Variables_to_change[var_is_already] )
+                        
+                        break
+#                        
+                if NextValue is True:
+                    fileHandler_tmp.write(line)
+                    continue 
+                
                 for key in DictWithAllTypes.keys():
                     #print(key)
-                    #here I check whether I have already that variable in table og changed variable
-                    for var_is_already in dict_of_Variables_to_change:
-                        
-                        if var_is_already in line:
-                            #print(" var_is_already :",var_is_already)
-                            #print(" line ",line)
-                            #if not ending variable name type
-                            if (dict_of_Variables_to_change[var_is_already] in line[(len(line) - len(dict_of_Variables_to_change[var_is_already])): len(line)]):
-                                #print(" changing name : ",
-                                  #line.replace(var_is_already, var_is_already+dict_of_Variables_to_change[var_is_already] ) )
-#have to interrupt that line
-                                print(line[(len(line) - len(dict_of_Variables_to_change[var_is_already])): len(line)])
-                                print(" breakuje ")
-                                NextValue = True
-                                break
-                    if NextValue is True:
-                        break
+                    #here I check whether I have already that variable in table of changed variable
+                    
+#                    if dict_of_Variables_to_change.keys() in line:
+#                        print(line,dict_of_Variables_to_change)
+#                        input(" dict keys in line")
+                    
+                    print(key," line = ",line_without_comment) 
                     if key in line: 
                         #   if variable was defined              
                         if "=" in line:
@@ -141,20 +153,34 @@ class ClassToAnalyseCfile:
                                     variable = tab1[i-1]
                                     break
                         else:
-                            for i in tab1:
-                                if ';' in i:
-                                    variable = i
+                            for i in range(0,len(tab1)):
+                                if ';' in tab1[i]:
+                                    variable = tab1[i]
                                     variable = (variable.split(';'))[0]
-
+                                    break
+                                    
                         print(tab1, " var = ",variable)
-                        
-                        strr = variable+DictWithAllTypes[key] 
-                        print(strr)
-                        dict_of_Variables_to_change[variable]=strr
-                        print(" I am adding new variables to dictionary of ")
-                print(iter)
+                        print(" prefix for variable ",DictWithAllTypes[key])
+                        #i am checking if this prefix is not already in variable
+                        if not (DictWithAllTypes[key] in variable[(len(variable) - len(DictWithAllTypes[key])): len(variable)]) :
+                            new_var = variable+DictWithAllTypes[key] 
+                            print(new_var)
+                            dict_of_Variables_to_change[variable]=new_var
+                            print(" I am adding new variables to dictionary of ")
+                            line = line.replace(variable,new_var)
+                            print(" after change ",line,end='')
+                            break
+#                        tab1[i] = new_var
+#                        line=""
+#                        for i in tab1:
+#                            line = line+i
+#                        line=line+"\n"  
+                        else:
+                            print(" prefix already in variable ")
+                        #input("key")
+#                print(iter)
                 iter+=1            
-            input("key")
+            #input("key")
             fileHandler_tmp.write(line)  
             #print("\n" , line, "\n")
             
