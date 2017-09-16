@@ -18,15 +18,19 @@ DIRECTORY=""
 START_COMMENT_BLOCK = "/*"
 END_COMMENT_BLOCK= "*/"
 
-DictWithAllTypes = {
-    
+AllAnalysedVariableTypes_dict = {
+    "typedef":      "_t",
     "uint8_t":      "_u8",
     "uint8":        "_u8", 
-    "uint16_t":     "_u16",
     " int8_t":       '_i8',
     " int8":         '_i8',
+    "uint16_t":     "_u16",
+    "uint16":     "_u16",
+    " int16_t":     "_i16",
+    " int16":     "_i16",
     "boolean_t":    "_bo",
     "bool_t":       "_bo",
+    
 }
 
 ######################################################
@@ -57,8 +61,12 @@ class ClassToAnalyseCfile:
             
             
         self.NextLineIsCommented = False
+        self.InTypedefBlockDefinition = False
+        self.InTypedefLineDefinition = False
+        self.AnalyseThatVariable = False
         
-    def ShowCfile(self):
+    def ShowCfile(self
+                  
         for i in self.tab:
             print(i)
             
@@ -85,33 +93,40 @@ class ClassToAnalyseCfile:
         """ method to decode line """
         
         
-        
-        
     def CorrectAllNames(self):
         fileHandler_tmp = open(self.filename+"_ch","w")
         dict_of_Variables_to_change={}
         iter=0
         for line in self.tab:
             NextValue = False
+            self.InTypedefLineDefinition = False  
             #print("comment ",line)
-            
             #if self.NextLineIsCommented is False:    
             #    print(" before commented \n",line)
                 
             line_without_comment = self.CheckWhetherLineCommented(line)
             print(line,end='')
+            #print(" line ",iter)
             #if self.NextLineIsCommented is False:    
             #    print("after commented \n",line)
                 
             if self.NextLineIsCommented is True:
-                print(line,end='')
+                #print(line,end='')
                 line_without_comment = self.CheckWhetherLineCommented(line)
                 #print(" i Am still in commented block")
                 fileHandler_tmp.write(line)
                 continue
+            if "}" in line and self.InTypedefBlockDefinition is True:
+                self.InTypedefBlockDefinition = False  
+                  
+                  
+            if "typedef" in line and not ';' in line:
+                self.InTypedefBlockDefinition = True
+                  #only one line definition
+                  
             
             if "#include" in line:
-                print(line,end='')
+                #print(line,end='')
                 fileHandler_tmp.write(line)
                 continue
             
@@ -120,33 +135,28 @@ class ClassToAnalyseCfile:
                 fileHandler_tmp.write(line)
                 continue
             
-            if (';' in line) :
+            #if normal coding line
+            if (';' in line_without_comment)  and not "(" in line_without_comment and not ")" in line_without_comment and not '[' in line_without_comment and not ']' in line:
                 tab1 = line_without_comment.split()
                 
                 print(" SPLITED : ",tab1,end='')
                 
                 for var_is_already in dict_of_Variables_to_change.keys():
-                    if var_is_already in line:
+                    if var_is_already in tab1:
+                        print(" var is already in dict ",var_is_already)
                         NextValue = True
                         line = line.replace(var_is_already, dict_of_Variables_to_change[var_is_already] )
-                        
                         break
 #                        
                 if NextValue is True:
                     fileHandler_tmp.write(line)
                     continue 
                 
-                for key in DictWithAllTypes.keys():
-                    #print(key)
-                    #here I check whether I have already that variable in table of changed variable
+                for var_type in AllAnalysedVariableTypes_dict.keys():
                     
-#                    if dict_of_Variables_to_change.keys() in line:
-#                        print(line,dict_of_Variables_to_change)
-#                        input(" dict keys in line")
-                    
-                    print(key," line = ",line_without_comment) 
-                    if key in line: 
-                        #   if variable was defined              
+                    if var_type in line: 
+                        #   if variable was defined  
+                        print(var_type," line = ",line_without_comment)
                         if "=" in line:
                             for i in range(0,len(tab1)):
                                 if tab1[i] == "=":
@@ -160,10 +170,17 @@ class ClassToAnalyseCfile:
                                     break
                                     
                         print(tab1, " var = ",variable)
-                        print(" prefix for variable ",DictWithAllTypes[key])
+                        prefix = AllAnalysedVariableTypes_dict[var_type]
+                        if '*' in line:
+                            print(prefix,end='')
+                            #check if this is pointer variable
+                            prefix = prefix.replace('_','_p')
+                            print(" new :",prefix)
+                            #input(" pointer ")
+                        print(" prefix for variable ",prefix)
                         #i am checking if this prefix is not already in variable
-                        if not (DictWithAllTypes[key] in variable[(len(variable) - len(DictWithAllTypes[key])): len(variable)]) :
-                            new_var = variable+DictWithAllTypes[key] 
+                        if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]) :
+                            new_var = variable+prefix
                             print(new_var)
                             dict_of_Variables_to_change[variable]=new_var
                             print(" I am adding new variables to dictionary of ")
@@ -179,7 +196,7 @@ class ClassToAnalyseCfile:
                             print(" prefix already in variable ")
                         #input("key")
 #                print(iter)
-                iter+=1            
+            iter+=1            
             #input("key")
             fileHandler_tmp.write(line)  
             #print("\n" , line, "\n")
@@ -187,9 +204,9 @@ class ClassToAnalyseCfile:
         
         #file_handler.close()    
         fileHandler_tmp.close()
-#        print("\n\n\ dict:")
-#        for key in dict_of_Variables_to_change.keys():
-#            print(key," = ",dict_of_Variables_to_change[key])
+        print("\n\n dict:")
+        for key in dict_of_Variables_to_change.keys():
+            print(key," = ",dict_of_Variables_to_change[key])
     
     def AnalyzeCfileObjects(self):
         pass
@@ -215,8 +232,8 @@ def AnalyseFileZFCoding(file_handler, temp):
         if (';' in line) and ("#" not in line) :
             tab1 = line.split()
             #print(line)
-                  #DictWithAllTypes.keys())
-            for key in DictWithAllTypes.keys():
+                  #AllAnalysedVariableTypes_dict.keys())
+            for key in AllAnalysedVariableTypes_dict.keys():
                 # print(dict_of_Variables_to_change)
                 for var_is_already in dict_of_Variables_to_change:
                     #print(var_is_already)
@@ -242,7 +259,7 @@ def AnalyseFileZFCoding(file_handler, temp):
                                 variable = (variable.split(';'))[0]
                         
                     print(tab1, " var = ",variable)
-                    strr = variable+DictWithAllTypes[key] 
+                    strr = variable+AllAnalysedVariableTypes_dict[key] 
                     print(strr)
                     dict_of_Variables_to_change[variable]=strr
                 
