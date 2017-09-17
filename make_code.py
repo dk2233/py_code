@@ -65,7 +65,7 @@ class ClassToAnalyseCfile:
         self.InTypedefLineDefinition = False
         self.AnalyseThatVariable = False
         
-    def ShowCfile(self
+    def ShowCfile(self):
                   
         for i in self.tab:
             print(i)
@@ -92,20 +92,68 @@ class ClassToAnalyseCfile:
     def DecodeCline(self,line):
         """ method to decode line """
         
-        
+    
+    def FindVariableinDefinition(self,line):
+        """ here I have to give line without any comments """
+        line_tab = line.split()
+        if "=" in line:
+            for i in range(0,len(line_tab)):
+            
+                if line_tab[i] == "=":
+                    variable = line_tab[i-1]
+                    break
+        else:                   
+            for i in range(0,len(line_tab)):
+                if ';' in line_tab[i]:
+                    if len(line_tab[i])>1:
+                        variable = line_tab[i]
+                        variable = (variable.split(';'))[0]
+                    else:
+                        #in case someone gave space between variable name and ;
+                        variable = line_tab[i-1]
+                    break
+
+        print(line_tab, " var = ",variable)
+        return( variable)
+    
+    
+    def  AddPrefixToVariable(self,variable,prefix,line):
+        #for var_type in AllAnalysedVariableTypes_dict.keys():
+        #    if var_type in line: 
+                
+        if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]) :
+            new_var = variable+prefix
+            print(new_var)
+            self.dict_of_Variables_to_change[variable]=new_var
+            print(" I am adding new variables to dictionary of ")
+            line = line.replace(variable,new_var)
+            print(" after change ",line,end='')
+            #break
+#                        line_tab[i] = new_var
+#                        line=""
+#                        for i in line_tab:
+#                            line = line+i
+#                        line=line+"\n"  
+        else:
+            print(" prefix already in variable ")
+        return(line)
+    
     def CorrectAllNames(self):
         fileHandler_tmp = open(self.filename+"_ch","w")
-        dict_of_Variables_to_change={}
+        self.dict_of_Variables_to_change={}
         iter=0
-        for line in self.tab:
+        while iter < len(self.tab):
             NextValue = False
+            line=self.tab[iter]      
             self.InTypedefLineDefinition = False  
             #print("comment ",line)
             #if self.NextLineIsCommented is False:    
             #    print(" before commented \n",line)
                 
             line_without_comment = self.CheckWhetherLineCommented(line)
-            print(line,end='')
+            line_tab = line_without_comment.split()
+            
+            #print(line,end='')
             #print(" line ",iter)
             #if self.NextLineIsCommented is False:    
             #    print("after commented \n",line)
@@ -115,41 +163,86 @@ class ClassToAnalyseCfile:
                 line_without_comment = self.CheckWhetherLineCommented(line)
                 #print(" i Am still in commented block")
                 fileHandler_tmp.write(line)
+                iter+=1 
                 continue
             if "}" in line and self.InTypedefBlockDefinition is True:
                 self.InTypedefBlockDefinition = False  
                   
                   
             if "typedef" in line and not ';' in line:
-                self.InTypedefBlockDefinition = True
+                #self.InTypedefBlockDefinition = True
+                fileHandler_tmp.write(line)
+                while '}' not in line:
+                    iter +=1
+                    line=self.tab[iter] 
+                    if '}' not in line:
+                        fileHandler_tmp.write(line)
+                
+                line_without_comment = self.CheckWhetherLineCommented(line)
+                print(line_without_comment) 
+                line_tmp = line_without_comment.strip()+" "
+                while not ';' in line:
+                    iter +=1
+                    line=self.tab[iter]  
+                    
+                    line_without_comment = self.CheckWhetherLineCommented(line)
+                    line_tmp += line_without_comment.strip()+" "
                   #only one line definition
-                  
+                
+                line_tab = line_tmp.split()
+                line_without_comment = line_tab[0]
+                for i in line_tab[1:]:
+                    if i is not ";":
+                        line_without_comment += " "
+                    line_without_comment +=i
+                    
+                variable = self.FindVariableinDefinition(line_without_comment)
+                line = self.AddPrefixToVariable(variable,AllAnalysedVariableTypes_dict["typedef"],line_without_comment)
+                #print(line_without_comment)
+                #line = line_without_comment  
+                fileHandler_tmp.write(line)
+                iter +=1
+                continue
+                #input(" typedef ")
+                
+            elif "typedef" in line and ';' in line:
+                var = self.FindVariableinDefinition(line_without_comment)
+                line = self.AddPrefixToVariable(var,AllAnalysedVariableTypes_dict["typedef"],line_without_comment)
+                #print(line_without_comment)
+                #line = line_without_comment  
+                fileHandler_tmp.write(line)
+                iter +=1
+                continue
+                input("key")
             
             if "#include" in line:
                 #print(line,end='')
                 fileHandler_tmp.write(line)
+                iter+=1 
                 continue
             
             if len(line_without_comment.strip())<1:
                 #print("empty line")
                 fileHandler_tmp.write(line)
+                iter+=1 
                 continue
             
             #if normal coding line
-            if (';' in line_without_comment)  and not "(" in line_without_comment and not ")" in line_without_comment and not '[' in line_without_comment and not ']' in line:
-                tab1 = line_without_comment.split()
+            if (';' in line_without_comment)  and not "(" in line_without_comment and not ")" in line_without_comment and not '[' in line_without_comment and not ']' in line_without_comment:
                 
-                print(" SPLITED : ",tab1,end='')
                 
-                for var_is_already in dict_of_Variables_to_change.keys():
-                    if var_is_already in tab1:
+                print(" SPLITED : ",line_tab,end='')
+                
+                for var_is_already in self.dict_of_Variables_to_change.keys():
+                    if var_is_already in line_tab:
                         print(" var is already in dict ",var_is_already)
                         NextValue = True
-                        line = line.replace(var_is_already, dict_of_Variables_to_change[var_is_already] )
+                        line = line.replace(var_is_already, self.dict_of_Variables_to_change[var_is_already] )
                         break
 #                        
                 if NextValue is True:
                     fileHandler_tmp.write(line)
+                    iter+=1 
                     continue 
                 
                 for var_type in AllAnalysedVariableTypes_dict.keys():
@@ -157,19 +250,7 @@ class ClassToAnalyseCfile:
                     if var_type in line: 
                         #   if variable was defined  
                         print(var_type," line = ",line_without_comment)
-                        if "=" in line:
-                            for i in range(0,len(tab1)):
-                                if tab1[i] == "=":
-                                    variable = tab1[i-1]
-                                    break
-                        else:
-                            for i in range(0,len(tab1)):
-                                if ';' in tab1[i]:
-                                    variable = tab1[i]
-                                    variable = (variable.split(';'))[0]
-                                    break
-                                    
-                        print(tab1, " var = ",variable)
+                        variable = self.FindVariableinDefinition(line_without_comment)
                         prefix = AllAnalysedVariableTypes_dict[var_type]
                         if '*' in line:
                             print(prefix,end='')
@@ -179,17 +260,18 @@ class ClassToAnalyseCfile:
                             #input(" pointer ")
                         print(" prefix for variable ",prefix)
                         #i am checking if this prefix is not already in variable
+                        print(variable)
                         if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]) :
                             new_var = variable+prefix
                             print(new_var)
-                            dict_of_Variables_to_change[variable]=new_var
+                            self.dict_of_Variables_to_change[variable]=new_var
                             print(" I am adding new variables to dictionary of ")
                             line = line.replace(variable,new_var)
                             print(" after change ",line,end='')
                             break
-#                        tab1[i] = new_var
+#                        line_tab[i] = new_var
 #                        line=""
-#                        for i in tab1:
+#                        for i in line_tab:
 #                            line = line+i
 #                        line=line+"\n"  
                         else:
@@ -205,8 +287,8 @@ class ClassToAnalyseCfile:
         #file_handler.close()    
         fileHandler_tmp.close()
         print("\n\n dict:")
-        for key in dict_of_Variables_to_change.keys():
-            print(key," = ",dict_of_Variables_to_change[key])
+        for key in self.dict_of_Variables_to_change.keys():
+            print(key," = ",self.dict_of_Variables_to_change[key])
     
     def AnalyzeCfileObjects(self):
         pass
@@ -221,16 +303,15 @@ def AnalyseFileZFCoding(file_handler, temp):
     line=file_handler.readline()
     
     dict_of_Variables_to_change={}
-    tab1 = []
+    line_tab = []
     while line:
         print(line)
         #line=line.strip();
         #if '//' in line  or '/*' in line:
             #remove all sign after that marker
             
-            
         if (';' in line) and ("#" not in line) :
-            tab1 = line.split()
+            line_tab = line.split()
             #print(line)
                   #AllAnalysedVariableTypes_dict.keys())
             for key in AllAnalysedVariableTypes_dict.keys():
@@ -248,17 +329,17 @@ def AnalyseFileZFCoding(file_handler, temp):
                 if key in line: 
                     #   if variable was defined              
                     if "=" in line:
-                        for i in range(0,len(tab1)):
-                            if tab1[i] == "=":
-                                variable = tab1[i-1]
+                        for i in range(0,len(line_tab)):
+                            if line_tab[i] == "=":
+                                variable = line_tab[i-1]
                                 break
                     else:
-                        for i in tab1:
+                        for i in line_tab:
                             if ';' in i:
                                 variable = i
                                 variable = (variable.split(';'))[0]
                         
-                    print(tab1, " var = ",variable)
+                    print(line_tab, " var = ",variable)
                     strr = variable+AllAnalysedVariableTypes_dict[key] 
                     print(strr)
                     dict_of_Variables_to_change[variable]=strr
@@ -305,12 +386,12 @@ def  DecodeArguments():
         arguments = arguments.strip()
         
         if "dir=" in arguments:
-            tab1 = arguments.split("=")
-            DIRECTORY = tab1[1]
+            line_tab = arguments.split("=")
+            DIRECTORY = line_tab[1]
         elif "file=" in arguments:
-            tab1 = arguments.split("=")
+            line_tab = arguments.split("=")
            
-            tabOfAnalyzedFiles.append(tab1[1])
+            tabOfAnalyzedFiles.append(line_tab[1])
     
     
     if (len(DIRECTORY)<1) and (len(tabOfAnalyzedFiles)<1):
@@ -325,8 +406,6 @@ def ClosingApp(startTime):
    
 def main():
     startTime = time.time()		
-    
-    
     #have to give  folder to look into
     # DIRECTORY = sys.argv[1]
     DecodeArguments()
