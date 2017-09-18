@@ -91,11 +91,52 @@ class ClassToAnalyseCfile:
         
     def DecodeCline(self,line):
         """ method to decode line """
+    
+    
+    def CorrectCLine(self,line):
+        """ it is for correct line, change forms of line """
         
+        if "=" in line:
+            nr = line.find("=")
+            if not line[nr+1].isspace():
+                line=line.replace("=","= ")
+            if not line[nr-1].isspace():
+                line=line.replace("="," =")
+                
+        if ";" in line:
+            nr = line.find(";")
+            i = nr-1
+            while line[i].isspace():
+                line = line[:i]+line[i+1:]
+                nr = line.find(";")
+                i=nr-1
+                
+        print(line)
+        return(line)
+    
+    
+    def DivideLine(self,line):
+        print(line)
+            
+        line_tab = line.split() 
+        
+#        for elem in line_tab:
+#            if "=" in elem and len(elem)>1:
+#                temp = elem.split("=")
+#                line_tab.remove(elem)
+#                for i in temp:
+#                    line_tab.append(i)
+                    
+        print(line_tab)         
+        if '(' and ')' in line:
+            iaminafunction = True
+        return(line_tab)     
     
     def FindVariableinDefinition(self,line):
         """ here I have to give line without any comments """
-        line_tab = line.split()
+        print(line)
+        line_tab = self.DivideLine(line)
+        print(line_tab)
         if "=" in line:
             for i in range(0,len(line_tab)):
             
@@ -149,9 +190,11 @@ class ClassToAnalyseCfile:
             #print("comment ",line)
             #if self.NextLineIsCommented is False:    
             #    print(" before commented \n",line)
-                
+            line = self.CorrectCLine(line)
+            print(line)
             line_without_comment = self.CheckWhetherLineCommented(line)
-            line_tab = line_without_comment.split()
+            line_tab = self.DivideLine(line)
+            #line_without_comment.split()
             
             #print(line,end='')
             #print(" line ",iter)
@@ -232,6 +275,8 @@ class ClassToAnalyseCfile:
                 
                 
                 print(" SPLITED : ",line_tab,end='')
+                
+                
                 
                 for var_is_already in self.dict_of_Variables_to_change.keys():
                     if var_is_already in line_tab:
