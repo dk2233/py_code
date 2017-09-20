@@ -2,21 +2,14 @@ import sys
 import os
 import shutil 
 import time
-
-
-
 global SCRIPT_FOLDER
 global VERSION
-
-
-
 VERSION = "1.09.08"
-
 DIRECTORY=""
-
-
 START_COMMENT_BLOCK = "/*"
 END_COMMENT_BLOCK= "*/"
+MODULE_PREFIX   =   "EDR"
+
 
 AllAnalysedVariableTypes_dict = {
     "typedef":      "_t",
@@ -28,15 +21,24 @@ AllAnalysedVariableTypes_dict = {
     "uint16":     "_u16",
     " int16_t":     "_i16",
     " int16":     "_i16",
+    "uint32_t":     "_u32",
+    "uint32":     "_u32",
+    " int32_t":     "_i32",
+    " int32":     "_i32",
     "boolean_t":    "_bo",
     "bool_t":       "_bo",
     
 }
+AllEquality_tab = {
+    "=",
+    "!",
+    " "
+}
+
 
 ######################################################
 # DEFINITIONS
 #####################################################	
-
 ######################################################
 # Function to search for all variable definitions
 #
@@ -44,32 +46,68 @@ AllAnalysedVariableTypes_dict = {
 # - need to understand function name
 #
 #####################################################	
-
 class ClassToAnalyseCfile:
     """class to understand c file"""
     
-    
-    
     def __init__(self,file):
-        self.file_p = open(file,"r")
-        self.filename = file
-        line = self.file_p.readline()
-        self.tab=[]
-        while(line):
-            self.tab.append(line)
-            line = self.file_p.readline()
+    
+        if ".c" in file or ".h" in file:
+            filename = file.split(".")[0]
+            
+        self.tab_c=[]
+        self.tab_h=[]
+        
+        try:    
+            self.file_c_p = open(filename+".c","r")
+            print("!"*100)
+            print(" I opened ",filename+".c") 
+            print("!"*100)
+            line = self.file_c_p.readline()
+           
+            while(line):
+                self.tab_c.append(line)
+                line = self.file_c_p.readline()
+                
+        except:
+            print("X"*100)
+            print(" cannot open file ",filename+".c")
+            print("X"*100)
             
             
+            
+        try:    
+            self.file_h_p = open(filename+".h","r")
+            print("!"*100)
+            print(" I opened ",filename+".h") 
+            print("!"*100)
+            
+            line = self.file_h_p.readline()
+            
+            while(line):
+                self.tab_h.append(line)
+                line = self.file_h_p.readline()
+            
+        except:
+            print("X"*100)
+            print(" cannot open file ",filename+".h")
+            print("X"*100)
+            
+        
+       
+        
         self.NextLineIsCommented = False
         self.InTypedefBlockDefinition = False
         self.InTypedefLineDefinition = False
         self.AnalyseThatVariable = False
         
     def ShowCfile(self):
-                  
-        for i in self.tab:
-            print(i)
-            
+        for i in self.tab_c:
+            print(i,end="")
+    
+    def ShowHfile(self):
+        for i in self.tab_h:
+            print(i,end="")
+    
     def Stop(self):
         input(" key ")
         
@@ -93,14 +131,18 @@ class ClassToAnalyseCfile:
         """ method to decode line """
     
     
+    def MergeLineInDifferentLines(self):
+        """ method to connect all lines that are one statement, but divided during development for readibility """
+        
+    
     def CorrectCLine(self,line):
         """ it is for correct line, change forms of line """
         
-        if "=" in line:
+        if "=" in line and not "==" in line and not "!=" in line :
             nr = line.find("=")
-            if not line[nr+1].isspace():
+            if not line[nr+1] in AllEquality_tab:
                 line=line.replace("=","= ")
-            if not line[nr-1].isspace():
+            if not line[nr-1] in AllEquality_tab:
                 line=line.replace("="," =")
                 
         if ";" in line:
@@ -111,32 +153,31 @@ class ClassToAnalyseCfile:
                 nr = line.find(";")
                 i=nr-1
                 
-        print(line)
+        if '(' and ')' in line and not "#define" in line:
+            # iaminafunction = True
+            for mark in ("(",")","[","]"):
+                nr = line.find(mark)
+                i = nr-1
+                if not line[nr+1].isspace():
+                    line=line.replace(mark,mark+" ")
+                if not line[nr-1].isspace():
+                    line=line.replace(mark," "+mark)
+                 
+            print(line)
+            input(" key ")
+            
         return(line)
     
     
     def DivideLine(self,line):
-        print(line)
-            
         line_tab = line.split() 
-        
-#        for elem in line_tab:
-#            if "=" in elem and len(elem)>1:
-#                temp = elem.split("=")
-#                line_tab.remove(elem)
-#                for i in temp:
-#                    line_tab.append(i)
-                    
-        print(line_tab)         
-        if '(' and ')' in line:
-            iaminafunction = True
-        return(line_tab)     
+        return(line_tab)       
     
     def FindVariableinDefinition(self,line):
         """ here I have to give line without any comments """
-        print(line)
+        # print(line)
         line_tab = self.DivideLine(line)
-        print(line_tab)
+        # print(line_tab)
         if "=" in line:
             for i in range(0,len(line_tab)):
             
@@ -153,7 +194,6 @@ class ClassToAnalyseCfile:
                         #in case someone gave space between variable name and ;
                         variable = line_tab[i-1]
                     break
-
         print(line_tab, " var = ",variable)
         return( variable)
     
@@ -179,6 +219,22 @@ class ClassToAnalyseCfile:
             print(" prefix already in variable ")
         return(line)
     
+    
+    def IsFunctionInLine(self,line):
+        """ to find all functions """
+        
+        
+    
+    def FindAllExternInH(self):
+        fileHandler_tmp = open(self.file_h_p+"_ch","w")
+        self.Dict_of_Extern_Variables_to_change={}
+        iter=0
+        while iter < len(self.tab_h):
+            line=self.tab[iter]
+            line = self.CorrectCLine(line)
+            
+            iter +=1
+        
     def CorrectAllNames(self):
         fileHandler_tmp = open(self.filename+"_ch","w")
         self.dict_of_Variables_to_change={}
@@ -187,11 +243,10 @@ class ClassToAnalyseCfile:
             NextValue = False
             line=self.tab[iter]      
             self.InTypedefLineDefinition = False  
-            #print("comment ",line)
-            #if self.NextLineIsCommented is False:    
-            #    print(" before commented \n",line)
+           
+            
             line = self.CorrectCLine(line)
-            print(line)
+            # print(line)
             line_without_comment = self.CheckWhetherLineCommented(line)
             line_tab = self.DivideLine(line)
             #line_without_comment.split()
@@ -208,8 +263,8 @@ class ClassToAnalyseCfile:
                 fileHandler_tmp.write(line)
                 iter+=1 
                 continue
-            if "}" in line and self.InTypedefBlockDefinition is True:
-                self.InTypedefBlockDefinition = False  
+            # if "}" in line and self.InTypedefBlockDefinition is True:
+                # self.InTypedefBlockDefinition = False  
                   
                   
             if "typedef" in line and not ';' in line:
@@ -241,6 +296,7 @@ class ClassToAnalyseCfile:
                     
                 variable = self.FindVariableinDefinition(line_without_comment)
                 line = self.AddPrefixToVariable(variable,AllAnalysedVariableTypes_dict["typedef"],line_without_comment)
+                line = line+"\n"
                 #print(line_without_comment)
                 #line = line_without_comment  
                 fileHandler_tmp.write(line)
@@ -273,10 +329,7 @@ class ClassToAnalyseCfile:
             #if normal coding line
             if (';' in line_without_comment)  and not "(" in line_without_comment and not ")" in line_without_comment and not '[' in line_without_comment and not ']' in line_without_comment:
                 
-                
                 print(" SPLITED : ",line_tab,end='')
-                
-                
                 
                 for var_is_already in self.dict_of_Variables_to_change.keys():
                     if var_is_already in line_tab:
@@ -284,7 +337,7 @@ class ClassToAnalyseCfile:
                         NextValue = True
                         line = line.replace(var_is_already, self.dict_of_Variables_to_change[var_is_already] )
                         break
-#                        
+
                 if NextValue is True:
                     fileHandler_tmp.write(line)
                     iter+=1 
@@ -470,20 +523,22 @@ def main():
     elif len(tabOfAnalyzedFiles)>0:
     
         for file in tabOfAnalyzedFiles:
-            kk = ClassToAnalyseCfile(file)
-            #kk.ShowCfile()
-            #kk.Stop()
-            kk.CorrectAllNames()
+        
             
-            try:
-                #fileHandler = open(file,"r")
-                #fileHandler_tmp = open(file+"_ch","w")
-                
-                print(" opened file : ",file)
-                print(" to write I opened file ", file+"_ch")
-            except:
-                print(" cannot open file ",file)
-                ClosingApp(startTime)
+            analyze = ClassToAnalyseCfile(file)
+            
+            analyze.ShowCfile()
+            analyze.ShowHfile()
+            
+            # analyze.CorrectAllNames()
+            
+            # try:
+                                
+                # print(" opened file : ",file)
+                # print(" to write I opened file ", file+"_ch")
+            # except:
+                # print(" cannot open file ",file)
+                # ClosingApp(startTime)
             #AnalyseFileZFCoding(fileHandler,fileHandler_tmp)
     
     
