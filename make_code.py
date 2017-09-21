@@ -11,8 +11,14 @@ END_COMMENT_BLOCK= "*/"
 MODULE_PREFIX   =   "EDR"
 
 
+#   if #include or #define there is no need for ; or {}
+
+# all comments are remove during c-file analysis
+
+
 AllAnalysedVariableTypes_dict = {
     "typedef":      "_t",
+    "enum":         "_e",
     "uint8_t":      "_u8",
     "uint8":        "_u8", 
     " int8_t":       '_i8',
@@ -27,7 +33,6 @@ AllAnalysedVariableTypes_dict = {
     " int32":     "_i32",
     "boolean_t":    "_bo",
     "bool_t":       "_bo",
-    
 }
 AllEquality_tab = {
     "=",
@@ -35,6 +40,10 @@ AllEquality_tab = {
     " "
 }
 
+WordWithoutEndingCharacters = (
+"#include",
+"#define"
+)
 
 ######################################################
 # DEFINITIONS
@@ -56,7 +65,8 @@ class ClassToAnalyseCfile:
             
         self.tab_c=[]
         self.tab_h=[]
-        
+        self.filename = filename
+        self.nr_line = 0
         try:    
             self.file_c_p = open(filename+".c","r")
             print("!"*100)
@@ -73,8 +83,6 @@ class ClassToAnalyseCfile:
             print(" cannot open file ",filename+".c")
             print("X"*100)
             
-            
-            
         try:    
             self.file_h_p = open(filename+".h","r")
             print("!"*100)
@@ -86,53 +94,67 @@ class ClassToAnalyseCfile:
             while(line):
                 self.tab_h.append(line)
                 line = self.file_h_p.readline()
-            
         except:
             print("X"*100)
             print(" cannot open file ",filename+".h")
             print("X"*100)
-            
-        
-       
         
         self.NextLineIsCommented = False
         self.InTypedefBlockDefinition = False
-        self.InTypedefLineDefinition = False
+        #self.InTypedefLineDefinition = False
         self.AnalyseThatVariable = False
         
-    def ShowCfile(self):
-        for i in self.tab_c:
-            print(i,end="")
-    
-    def ShowHfile(self):
-        for i in self.tab_h:
-            print(i,end="")
-    
-    def Stop(self):
-        input(" key ")
         
-    def  CheckWhetherLineCommented(self,line):
-        if (START_COMMENT_BLOCK in line) and ( not END_COMMENT_BLOCK in line):
-            self.NextLineIsCommented = True
-            line=line[:line.find(START_COMMENT_BLOCK)]
-            #print(" i am in //* section ")
-        elif  (START_COMMENT_BLOCK in line) and (  END_COMMENT_BLOCK in line):
-            self.NextLineIsCommented = False
-            line=line[:line.find(START_COMMENT_BLOCK)]+line[line.find(END_COMMENT_BLOCK)+len(END_COMMENT_BLOCK):]
-        elif ( (END_COMMENT_BLOCK in line) and (self.NextLineIsCommented is True)):
-            self.NextLineIsCommented = False
-            line=line[line.find(END_COMMENT_BLOCK)+len(END_COMMENT_BLOCK):]
+        
+    def ShowCfile(self,tab_from_c_file):
+        for element in tab_from_c_file:
+            print(element,end="")
+        
+
+        
+    def  CheckWhetherLineCommented(self,tab):
+        """ this find all comments and return two strings - all line with strings together 
+        and line without comments"""
+        
+        line=tab[self.nr_line]
+        line_wc=line
+        if (START_COMMENT_BLOCK in line):
+        #and ( not END_COMMENT_BLOCK in line):
+            #self.NextLineIsCommented = True
+            
+            while(not END_COMMENT_BLOCK in tab[self.nr_line]):
+                self.nr_line +=1
+                line +=tab[self.nr_line]
+                
+            #line +=tab[self.nr_line]    
+            
+            line_wc=line[:line.find(START_COMMENT_BLOCK)]+line[line.find(END_COMMENT_BLOCK):]
+            
+        # elif  (START_COMMENT_BLOCK in line) and (  END_COMMENT_BLOCK in line):
+            # self.NextLineIsCommented = False
+            # line_wc=line[:line.find(START_COMMENT_BLOCK)]+line[line.find(END_COMMENT_BLOCK)+len(END_COMMENT_BLOCK):]
+        # elif ( (END_COMMENT_BLOCK in line) and (self.NextLineIsCommented is True)):
+            # self.NextLineIsCommented = False
+            # line_wc=line[line.find(END_COMMENT_BLOCK)+len(END_COMMENT_BLOCK):]
         elif '#' in line:
-            line=line[:line.find('#')]
-        return(line)    
+            line_wc=line[:line.find('#')]
+            
+        return line,line_wc
      
-        
+     
     def DecodeCline(self,line):
         """ method to decode line """
     
-    
-    def MergeLineInDifferentLines(self):
+    def MergeLineInDifferentLines(self,tab,nr_line):
         """ method to connect all lines that are one statement, but divided during development for readibility """
+        line=tab[nr_line]
+        
+        if (START_COMMENT_BLOCK in line) and ( not END_COMMENT_BLOCK in line):
+            finishMark = END_COMMENT_BLOCK
+                        
+        # elif not ";" in line and not "{":
+                        
+        #if not ";"  in line and not "{"
         
     
     def CorrectCLine(self,line):
@@ -164,7 +186,7 @@ class ClassToAnalyseCfile:
                     line=line.replace(mark," "+mark)
                  
             print(line)
-            input(" key ")
+            #input(" key ")
             
         return(line)
     
@@ -201,14 +223,35 @@ class ClassToAnalyseCfile:
     def  AddPrefixToVariable(self,variable,prefix,line):
         #for var_type in AllAnalysedVariableTypes_dict.keys():
         #    if var_type in line: 
-                
+        
+        #wrong prefix:
+        
+        for pref in AllAnalysedVariableTypes_dict.values():
+            if pref is prefix:
+                #if same prefix it is ok to be in variable
+                continue
+            # print(pref)
+            if (pref in variable[(len(variable) - len(pref)): len(variable)]) :
+                variable = variable.replace(pref,"")
+                # input("key")
+        
+        
+        #not real prefix - remove obsolete _xx (two letter max)
+        # print("#"*100)
+        # print(variable)
+        # print("#"*100)
+        
         if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]) :
+            i=variable[len(variable)-2:].find("_")
+            if i is not -1:
+                variable = variable[:i]
+                
             new_var = variable+prefix
             print(new_var)
             self.dict_of_Variables_to_change[variable]=new_var
             print(" I am adding new variables to dictionary of ")
             line = line.replace(variable,new_var)
-            print(" after change ",line,end='')
+            print(" after change ",line)
             #break
 #                        line_tab[i] = new_var
 #                        line=""
@@ -216,17 +259,33 @@ class ClassToAnalyseCfile:
 #                            line = line+i
 #                        line=line+"\n"  
         else:
-            print(" prefix already in variable ")
+            print(" prefix ", prefix," already in variable ")
+        # print("#"*100)
+        # print(variable)
+        # print("#"*100)
         return(line)
     
     
     def IsFunctionInLine(self,line):
         """ to find all functions """
         
+    def  RemoveAllCommentForAnalysis(self,tab):
+        """ it is needed for analysing pure code without commented blocks 
+        TBD
+        TBD
+        """
+        # tab_without_comment = []
+        # iter=0
         
+        # while iter < len(tab):
+            # line=tab[iter]
+            # line_without_comment = self.CheckWhetherLineCommented(line)
+            # tab_without_comment.append(line_without_comment)
+            # iter +=1
+        # return(tab_without_comment)
     
     def FindAllExternInH(self):
-        fileHandler_tmp = open(self.file_h_p+"_ch","w")
+        #fileHandler_tmp = open(self.filename+".c"+"_ch","w")
         self.Dict_of_Extern_Variables_to_change={}
         iter=0
         while iter < len(self.tab_h):
@@ -236,54 +295,53 @@ class ClassToAnalyseCfile:
             iter +=1
         
     def CorrectAllNames(self):
-        fileHandler_tmp = open(self.filename+"_ch","w")
+        fileHandler_tmp = open(self.filename+".c"+"_ch","w")
         self.dict_of_Variables_to_change={}
-        iter=0
-        while iter < len(self.tab):
-            NextValue = False
-            line=self.tab[iter]      
-            self.InTypedefLineDefinition = False  
-           
+        self.nr_line=0
+        while self.nr_line < len(self.tab_c):
+            line=self.tab_c[self.nr_line]      
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
             
-            line = self.CorrectCLine(line)
-            # print(line)
-            line_without_comment = self.CheckWhetherLineCommented(line)
-            line_tab = self.DivideLine(line)
-            #line_without_comment.split()
-            
-            #print(line,end='')
-            #print(" line ",iter)
-            #if self.NextLineIsCommented is False:    
-            #    print("after commented \n",line)
-                
-            if self.NextLineIsCommented is True:
-                #print(line,end='')
-                line_without_comment = self.CheckWhetherLineCommented(line)
-                #print(" i Am still in commented block")
+            if len(line_without_comment.strip())<1:
+                #print("empty line")
                 fileHandler_tmp.write(line)
-                iter+=1 
+                self.nr_line+=1 
                 continue
-            # if "}" in line and self.InTypedefBlockDefinition is True:
-                # self.InTypedefBlockDefinition = False  
-                  
+            
+            #MergeLineInDifferentLines(tab_c,iter)
+            
+            # if any(word in line for word in WordWithoutEndingCharacters):
+                
+                # fileHandler_tmp.write(line)
+            
+            #line = self.CorrectCLine(line)
+            # print(line)
+            
+            # print(line)
+            # input( " key ")
+            # print(line_without_comment)
+            # input( " key ")
+            line_tab = self.DivideLine(line)
+            
+            
                   
             if "typedef" in line and not ';' in line:
                 #self.InTypedefBlockDefinition = True
                 fileHandler_tmp.write(line)
+                
                 while '}' not in line:
-                    iter +=1
-                    line=self.tab[iter] 
+                    self.nr_line +=1
+                    line=self.tab_c[self.nr_line] 
                     if '}' not in line:
                         fileHandler_tmp.write(line)
                 
-                line_without_comment = self.CheckWhetherLineCommented(line)
                 print(line_without_comment) 
                 line_tmp = line_without_comment.strip()+" "
                 while not ';' in line:
-                    iter +=1
-                    line=self.tab[iter]  
+                    self.nr_line +=1
+                    line=self.tab_c[self.nr_line]  
                     
-                    line_without_comment = self.CheckWhetherLineCommented(line)
+                    #line_without_comment = self.CheckWhetherLineCommented(line)
                     line_tmp += line_without_comment.strip()+" "
                   #only one line definition
                 
@@ -300,7 +358,7 @@ class ClassToAnalyseCfile:
                 #print(line_without_comment)
                 #line = line_without_comment  
                 fileHandler_tmp.write(line)
-                iter +=1
+                self.nr_line +=1
                 continue
                 #input(" typedef ")
                 
@@ -310,22 +368,10 @@ class ClassToAnalyseCfile:
                 #print(line_without_comment)
                 #line = line_without_comment  
                 fileHandler_tmp.write(line)
-                iter +=1
+                self.nr_line +=1
                 continue
-                input("key")
-            
-            if "#include" in line:
-                #print(line,end='')
-                fileHandler_tmp.write(line)
-                iter+=1 
-                continue
-            
-            if len(line_without_comment.strip())<1:
-                #print("empty line")
-                fileHandler_tmp.write(line)
-                iter+=1 
-                continue
-            
+                #input("key")
+                        
             #if normal coding line
             if (';' in line_without_comment)  and not "(" in line_without_comment and not ")" in line_without_comment and not '[' in line_without_comment and not ']' in line_without_comment:
                 
@@ -340,7 +386,7 @@ class ClassToAnalyseCfile:
 
                 if NextValue is True:
                     fileHandler_tmp.write(line)
-                    iter+=1 
+                    self.nr_line+=1 
                     continue 
                 
                 for var_type in AllAnalysedVariableTypes_dict.keys():
@@ -375,8 +421,8 @@ class ClassToAnalyseCfile:
                         else:
                             print(" prefix already in variable ")
                         #input("key")
-#                print(iter)
-            iter+=1            
+#                print(self.nr_line)
+            self.nr_line+=1            
             #input("key")
             fileHandler_tmp.write(line)  
             #print("\n" , line, "\n")
@@ -527,10 +573,12 @@ def main():
             
             analyze = ClassToAnalyseCfile(file)
             
-            analyze.ShowCfile()
-            analyze.ShowHfile()
             
-            # analyze.CorrectAllNames()
+            #tab = analyze.RemoveAllCommentForAnalysis(analyze.tab_c)
+            #analyze.ShowCfile(tab)
+            #analyze.ShowHfile()
+            
+            analyze.CorrectAllNames()
             
             # try:
                                 
