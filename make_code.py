@@ -45,6 +45,14 @@ WordWithoutEndingCharacters = (
 "#define"
 )
 
+#here I have symbols which are used to know that line is finished
+FinishMarkers  = (
+    ";",    
+    "{",
+    "\\"
+)
+
+
 ######################################################
 # DEFINITIONS
 #####################################################	
@@ -127,9 +135,9 @@ class ClassToAnalyseCfile:
                 line +=tab[self.nr_line]
                 
             #line +=tab[self.nr_line]    
-            
-            line_wc=line[:line.find(START_COMMENT_BLOCK)]+line[line.find(END_COMMENT_BLOCK):]
-            
+            print(self.nr_line," line ",line)
+            line_wc=line[:line.find(START_COMMENT_BLOCK)]+line[line.find(END_COMMENT_BLOCK)+len(END_COMMENT_BLOCK):]
+            print(" wc ",line_wc)
         # elif  (START_COMMENT_BLOCK in line) and (  END_COMMENT_BLOCK in line):
             # self.NextLineIsCommented = False
             # line_wc=line[:line.find(START_COMMENT_BLOCK)]+line[line.find(END_COMMENT_BLOCK)+len(END_COMMENT_BLOCK):]
@@ -145,17 +153,6 @@ class ClassToAnalyseCfile:
     def DecodeCline(self,line):
         """ method to decode line """
     
-    def MergeLineInDifferentLines(self,tab,nr_line):
-        """ method to connect all lines that are one statement, but divided during development for readibility """
-        line=tab[nr_line]
-        
-        if (START_COMMENT_BLOCK in line) and ( not END_COMMENT_BLOCK in line):
-            finishMark = END_COMMENT_BLOCK
-                        
-        # elif not ";" in line and not "{":
-                        
-        #if not ";"  in line and not "{"
-        
     
     def CorrectCLine(self,line):
         """ it is for correct line, change forms of line """
@@ -184,10 +181,8 @@ class ClassToAnalyseCfile:
                     line=line.replace(mark,mark+" ")
                 if not line[nr-1].isspace():
                     line=line.replace(mark," "+mark)
-                 
             print(line)
             #input(" key ")
-            
         return(line)
     
     
@@ -195,22 +190,46 @@ class ClassToAnalyseCfile:
         line_tab = line.split() 
         return(line_tab)       
     
+    
     def FindVariableinDefinition(self,line):
         """ here I have to give line without any comments """
         # print(line)
+        
+        #print(line_tab)
+#        if "{" in line and "}" in line: 
+#            line = line[:line.find("{")] + line[line.find("}")+1:]
+#            print(line)
+            
+        #LineFinish = False
+        if "typedef" in line:
+            while line.count("{")>0 and line.count("}")>0:
+                #print(line)
+                a1 = line.find("{")
+                
+                a2 = len(line)-1
+                while line[a2] is not "}":
+                    a2 -=1
+                line = line[:a1]+line[a2+1:]
+                #print(line)
+
+            #input(" after merging ")
+        
+        
+        #else:
+            
         line_tab = self.DivideLine(line)
-        # print(line_tab)
+
         if "=" in line:
             for i in range(0,len(line_tab)):
-            
                 if line_tab[i] == "=":
                     variable = line_tab[i-1]
                     break
-        else:                   
+        else:
             for i in range(0,len(line_tab)):
                 if ';' in line_tab[i]:
                     if len(line_tab[i])>1:
                         variable = line_tab[i]
+                        #print(variable)
                         variable = (variable.split(';'))[0]
                     else:
                         #in case someone gave space between variable name and ;
@@ -293,55 +312,104 @@ class ClassToAnalyseCfile:
             line = self.CorrectCLine(line)
             
             iter +=1
+    
+    
+    def MergeLineInDifferentLines(self,tab):
+        """ method to connect all lines that are one statement, but divided during development for readibility """
+        #line=tab[self.nr_line]
+        line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+        temp = line
+        level_of_para = 0
+        #while not any(element in line_without_comment for element in FinishMarkers ):
+        LineFinish = False
         
+        while not LineFinish:
+            #print(line)
+            self.nr_line +=1
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            temp +=line
+            
+            level_of_para += line_without_comment.count("{")
+            level_of_para -= line_without_comment.count("}")
+            
+            if ';' in line and level_of_para is 0:
+                LineFinish = True
+        print(temp)
+            
+        input(" after merging ")
+        return(temp)    
+        # elif not ";" in line and not "{":
+                        
+        #if not ";"  in line and not "{"
+
+    
     def CorrectAllNames(self):
         fileHandler_tmp = open(self.filename+".c"+"_ch","w")
         self.dict_of_Variables_to_change={}
         self.nr_line=0
         while self.nr_line < len(self.tab_c):
-            line=self.tab_c[self.nr_line]      
-            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            #line=self.tab_c[self.nr_line]      
             
-            if len(line_without_comment.strip())<1:
-                #print("empty line")
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            #print(line_without_comment)
+            #print(" w c")
+            #input( " key ")
+            if len(line_without_comment.strip())<2:
+                # print("empty line")
                 fileHandler_tmp.write(line)
                 self.nr_line+=1 
                 continue
             
-            #MergeLineInDifferentLines(tab_c,iter)
+            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
+                fileHandler_tmp.write(line)
+                self.nr_line+=1 
+                print(" ending marker ",line_without_comment.strip()[len(line_without_comment.strip())])
+                while line.strip()[len(line.strip())] is ("\\") and "#define" in line:
+                    
+                    self.nr_line+=1 
+                    line=self.tab_c[self.nr_line]
+                    fileHandler_tmp.write(line)
+                    print(line)
+                input("WordWithoutEndingCharacters  key ")
+                continue
+            input( " before Merging ")    
+            line = self.MergeLineInDifferentLines(self.tab_c)
+            
             
             # if any(word in line for word in WordWithoutEndingCharacters):
                 
                 # fileHandler_tmp.write(line)
             
             #line = self.CorrectCLine(line)
-            # print(line)
+            #print(line)
             
             # print(line)
-            # input( " key ")
-            # print(line_without_comment)
+            
+            #print(line_without_comment)
             # input( " key ")
             line_tab = self.DivideLine(line)
             
             
                   
             if "typedef" in line and not ';' in line:
+                #print(" here")
                 #self.InTypedefBlockDefinition = True
                 fileHandler_tmp.write(line)
                 
                 while '}' not in line:
                     self.nr_line +=1
-                    line=self.tab_c[self.nr_line] 
-                    if '}' not in line:
+                    #line=self.tab_c[self.nr_line] 
+                    line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+                    if '}' not in line_without_comment:
                         fileHandler_tmp.write(line)
                 
-                print(line_without_comment) 
+                #print(line_without_comment) 
+                #print(line)
                 line_tmp = line_without_comment.strip()+" "
                 while not ';' in line:
                     self.nr_line +=1
-                    line=self.tab_c[self.nr_line]  
-                    
-                    #line_without_comment = self.CheckWhetherLineCommented(line)
+                    # line=self.tab_c[self.nr_line]  
+                    line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
                     line_tmp += line_without_comment.strip()+" "
                   #only one line definition
                 
@@ -352,7 +420,7 @@ class ClassToAnalyseCfile:
                         line_without_comment += " "
                     line_without_comment +=i
                     
-                variable = self.FindVariableinDefinition(line_without_comment)
+                variable = self.FindVariableinDefinition(line)
                 line = self.AddPrefixToVariable(variable,AllAnalysedVariableTypes_dict["typedef"],line_without_comment)
                 line = line+"\n"
                 #print(line_without_comment)
@@ -363,9 +431,19 @@ class ClassToAnalyseCfile:
                 #input(" typedef ")
                 
             elif "typedef" in line and ';' in line:
-                var = self.FindVariableinDefinition(line_without_comment)
-                line = self.AddPrefixToVariable(var,AllAnalysedVariableTypes_dict["typedef"],line_without_comment)
-                #print(line_without_comment)
+                #print(line)
+                print(" searching variable ")
+                var = self.FindVariableinDefinition(line)
+                print(" var ",var)
+                if "enum" in line:
+                    line = self.AddPrefixToVariable(var,AllAnalysedVariableTypes_dict["enum"],line)
+                else:    
+                    line = self.AddPrefixToVariable(var,AllAnalysedVariableTypes_dict["typedef"],line)
+                
+                #line = line[]
+                
+                # print(line)
+                print("#"*100)
                 #line = line_without_comment  
                 fileHandler_tmp.write(line)
                 self.nr_line +=1
