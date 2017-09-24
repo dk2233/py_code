@@ -343,7 +343,7 @@ class ClassToAnalyseCfile:
                 
                     self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
                 
-                    input(" key ")
+#                    input(" key ")
                         
                 except:
                     print("X"*100)
@@ -559,12 +559,8 @@ class ClassToAnalyseCfile:
                 continue        
     
         
-        
-        
-        
-        
-        
-    def CorrectAllNames(self):
+    def  CorrectAllVariablesNames(self):
+        self.nr_line=0
         self.tab_after_corrections=[]
         while self.nr_line < len(self.tab_c):
             
@@ -597,7 +593,53 @@ class ClassToAnalyseCfile:
                 self.nr_line+=1
                     
                 continue        
-            #input( " before Merging ")  
+            
+            line = self.MergeLineInDifferentLines(self.tab_c)
+            
+            for searchedVar   in self.dict_of_Variables_to_change.keys():
+                #print(searchedVar)
+                if searchedVar in line:
+                    line=line.replace(searchedVar,self.dict_of_Variables_to_change[searchedVar])
+                
+            self.tab_after_corrections.append(line)
+            self.nr_line+=1
+            
+            
+        
+    def CorrectAllNames(self):
+        self.nr_line=0
+        self.tab_after_corrections=[]
+        while self.nr_line < len(self.tab_c):
+            
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            #print(self.nr_line,"\n wc ->:",line_without_comment,"\n\t",line,end='')
+
+            if len(line_without_comment.strip())<2:
+                #fileHandler_tmp.write(line)
+                self.tab_after_corrections.append(line)
+                self.nr_line+=1 
+                continue
+            
+            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
+                #fileHandler_tmp.write(line)
+                self.tab_after_corrections.append(line)
+                #input(" key ")
+                
+                #print(" ending marker ",line_without_comment.strip()[len(line_without_comment.strip())-1])
+                
+                if  "#define" in line:
+                    while line.strip()[len(line.strip())-1] is ("\\"):
+                        self.nr_line+=1 
+                        line=self.tab_c[self.nr_line]
+                        #fileHandler_tmp.write(line)
+                        self.tab_after_corrections.append(line)
+                        print(line)
+                    #input("WordWithoutEndingCharacters  key ")
+                    
+                #else:
+                self.nr_line+=1
+                    
+                continue        
             
             line = self.MergeLineInDifferentLines(self.tab_c)
             
@@ -684,13 +726,18 @@ class ClassToAnalyseCfile:
             #fileHandler_tmp.write(line)  
             
         
-        #file_handler.close()    
-        #fileHandler_tmp.close()
-        print("\n\n dict:")
-        for key in self.dict_of_Variables_to_change.keys():
-            print(key," = ",self.dict_of_Variables_to_change[key])
-  
-
+    def  SaveAllTab(self,filename):
+        line_nr = 0
+        
+        file=open(filename,"w")
+        
+        while line_nr<len(self.tab_after_corrections):
+            
+            file.write(self.tab_after_corrections[line_nr])
+            
+            line_nr +=1
+        
+        file.close()
     
     
     
@@ -806,8 +853,12 @@ def main():
             analyze.FindAllTypedefVar()
             
             print(analyze.dict_of_Variables_to_change)
+            
+            analyze.CorrectAllVariablesNames()
+            
+            analyze.SaveAllTab(filename+"_ch")
             #input(" key ")
-            #analyze.CorrectAllNames()
+            
             #analyze.tab_c = 
     
     for key in AllIncludes_d.keys():
