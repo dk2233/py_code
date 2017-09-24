@@ -42,7 +42,10 @@ AllEquality_tab = {
 WordWithoutEndingCharacters = (
     "#include",
     "#define",
-    "#pragma"
+    "#pragma",
+    "#ifndef",
+    "#endif"
+    
 )
 
 #here I have symbols which are used to know that line is finished
@@ -66,6 +69,11 @@ SignNotForWord = (
 
 AllFunctionArgument = {}
 
+
+AllIncludes_d={}
+
+
+
 ######################################################
 # DEFINITIONS
 #####################################################	
@@ -79,46 +87,11 @@ AllFunctionArgument = {}
 class ClassToAnalyseCfile:
     """class to understand c file"""
     
-    def __init__(self,file):
+    def __init__(self,tab):
     
-        if ".c" in file or ".h" in file:
-            filename = file.split(".")[0]
-            
-        self.tab_c=[]
-        self.tab_h=[]
-        self.filename = filename
+        self.tab_c = tab
+        
         self.nr_line = 0
-        try:    
-            self.file_c_p = open(filename+".c","r")
-            print("!"*100)
-            print(" I opened ",filename+".c") 
-            print("!"*100)
-            line = self.file_c_p.readline()
-            
-            while(line):
-                self.tab_c.append(line)
-                line = self.file_c_p.readline()
-                
-        except:
-            print("X"*100)
-            print(" cannot open file ",filename+".c")
-            print("X"*100)
-            
-        try:    
-            self.file_h_p = open(filename+".h","r")
-            print("!"*100)
-            print(" I opened ",filename+".h") 
-            print("!"*100)
-            
-            line = self.file_h_p.readline()
-            
-            while(line):
-                self.tab_h.append(line)
-                line = self.file_h_p.readline()
-        except:
-            print("X"*100)
-            print(" cannot open file ",filename+".h")
-            print("X"*100)
         
         self.NextLineIsCommented = False
         self.InTypedefBlockDefinition = False
@@ -126,15 +99,16 @@ class ClassToAnalyseCfile:
         self.AnalyseThatVariable = False
         self.FunctionPrototype = False
         self.InFunctionDeclaration = False
+        self.dict_of_Variables_to_change={}
+        self.tab_after_corrections=[]
         
-        
-    def ShowCfile(self,tab_from_c_file):
-        for element in tab_from_c_file:
+    def ShowCfile(self):
+        for element in self.tab_c:
             print(element,end="")
         
-
         
-    def  CheckWhetherLineCommented(self,tab):
+        
+    def CheckWhetherLineCommented(self,tab):
         """ this find all comments and return two strings - all line with strings together 
         and line without comments"""
         
@@ -156,9 +130,6 @@ class ClassToAnalyseCfile:
             
         return line,line_wc
      
-    
-    def DecodeCline(self,line):
-        """ method to decode line """
     
     
     def CorrectCLine(self,line):
@@ -217,6 +188,7 @@ class ClassToAnalyseCfile:
                     variable = line_tab[i-1]
                     break
         else:
+            print(" tt ",line_tab)
             for i in range(0,len(line_tab)):
                 if ';' in line_tab[i]:
                     if len(line_tab[i])>1:
@@ -227,7 +199,8 @@ class ClassToAnalyseCfile:
                         #in case someone gave space between variable name and ;
                         variable = line_tab[i-1]
                     break
-        print(line_tab, " var = ",variable)
+        print(line_tab,end="" )
+        print(" var = ",variable)
         return( variable)
     
     
@@ -256,6 +229,7 @@ class ClassToAnalyseCfile:
             
             line = line.replace(variable,new_var)
             print(" after change ",line)
+            input(" key ")
         else:
             print(" prefix ", prefix," already in variable ")
             
@@ -334,6 +308,56 @@ class ClassToAnalyseCfile:
             
             
             
+            
+            
+    def  AnalyzeAllIncludes(self):
+        self.nr_line = 0
+        while self.nr_line<len(self.tab_c):
+            
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            
+            if len(line_without_comment.strip())<2:
+                self.nr_line+=1 
+                continue
+                
+            if  "#include" in line:
+                filename = line.strip().split(r'"')[1]
+                print(filename)
+                #input(" key ")
+                try:    
+                    file_c_p = open(filename,"r")
+                    print("!"*100)
+                    print(" I opened ",filename) 
+                    print("!"*100)
+                    tab = []
+                    line = file_c_p.readline()
+
+                    while(line):
+                        tab.append(line)
+                        line = file_c_p.readline()
+
+                    inc = ClassToAnalyseCfile(tab)
+                    inc.FindAllTypedefVar()
+                    AllIncludes_d[filename]=inc.dict_of_Variables_to_change
+                    print(inc.dict_of_Variables_to_change)
+                
+                    self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
+                
+                    input(" key ")
+                        
+                except:
+                    print("X"*100)
+                    print(" cannot open file ",filename)
+                    print("X"*100)
+                    AllIncludes_d[filename] = " not found "
+                    
+                
+            self.nr_line +=1
+        
+        
+        
+        
+        
     def IsThisWord(self,string):
         isWord = False
         if len(string)>2:
@@ -345,6 +369,77 @@ class ClassToAnalyseCfile:
         
         
         
+        
+    def FindAllTypedefVar(self):
+        self.nr_line = 0
+        while self.nr_line<len(self.tab_c):
+            
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            if len(line_without_comment.strip())<2:
+                self.nr_line+=1 
+                continue
+            
+            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
+                if  "#define" in line:
+                    while line.strip()[len(line.strip())-1] is ("\\"):
+                        self.nr_line+=1 
+                        line=self.tab_c[self.nr_line]
+                self.nr_line+=1
+                continue   
+                
+            line = self.MergeLineInDifferentLines(self.tab_c)
+            line_tab = self.DivideLine(line)
+                
+            if "typedef" in line and ';' in line:
+                print(" searching variable of typedef ")
+                var = self.FindVariableinDefinition(line)
+                print(" var ",var)
+                
+                new_var,line  = self.AddPrefixToVariable(var,AllAnalysedVariableTypes_dict["typedef"],line)
+                print(" var ",new_var)
+                self.nr_line +=1
+                continue
+        
+            if (';' in line)  and not "(" in line and not ")" in line and not '[' in line and not ']' in line:
+                
+                for var_is_already in self.dict_of_Variables_to_change.keys():
+                    if var_is_already in line_tab:
+                        print(" var is already in dict ",var_is_already)
+                        line = line.replace(var_is_already, self.dict_of_Variables_to_change[var_is_already] )
+                        break
+
+                for var_type in AllAnalysedVariableTypes_dict.keys():
+
+                    if var_type in line:
+                        #   if variable was defined  
+                        print(var_type," line = ",line_without_comment)
+                        variable = self.FindVariableinDefinition(line_without_comment)
+                        prefix = AllAnalysedVariableTypes_dict[var_type]
+                        prefix = self.IfPointerAdd_p(variable,prefix)
+                        # if '*' in line:
+                            # print(prefix,end='')
+                            # prefix = prefix.replace('_','_p')
+                            # print(" new :",prefix)
+
+                        print(" prefix for variable ",prefix)
+                        #i am checking if this prefix is not already in variable
+                        #print(variable)
+                        if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]) :
+                            new_var = variable+prefix
+                            print(new_var)
+                            self.dict_of_Variables_to_change[variable]=new_var
+                            print(" I am adding new variables to dictionary of ")
+                            line = line.replace(variable,new_var)
+                            print(" after change ",line,end='')
+                            break
+                        else:
+                            print(" prefix already in variable ")
+            
+            self.nr_line +=1
+            
+            
+            
+            
     def MergeLineInDifferentLines(self,tab):
         """ method to connect all lines that are one statement, but divided during development for readibility 
         
@@ -357,6 +452,7 @@ class ClassToAnalyseCfile:
         #line=tab[self.nr_line]
         
         temp = ""
+        self.tab_func = []
         level_of_para = 0
         level_of_para_func = 0
         #while not any(element in line_without_comment for element in FinishMarkers ):
@@ -375,9 +471,10 @@ class ClassToAnalyseCfile:
             if  any(func in line for func in AllFunctionArgument):
                 print(" that function ",func, " is in tab functions ")
                 #IamInFunction = True
-                input(" func ")
+                #input(" func ")
             
             temp +=line
+            self.tab_func.append(line)
             line_without_comment = line_without_comment.replace("("," ( ")
             line_without_comment = line_without_comment.replace(")"," ) ")
             
@@ -390,9 +487,9 @@ class ClassToAnalyseCfile:
                 if "{" in word and "(" in temp and ")" in temp:
                     if wordCountBeforeParanthesis >=2 :
                         self.InFunctionDeclaration = True
-                        print(temp)
+                        #print(temp)
                         #LineFinish = True
-                        input(" i am in the function ")
+#                        input(" i am in the function ")
                 
                 if self.IsThisWord(word) == True:
                     wordCountBeforeParanthesis +=1
@@ -431,31 +528,58 @@ class ClassToAnalyseCfile:
         # print(self.nr_line,"\n",line)
         #input(" after merging ")
         return(temp)    
-       
+    
+    
+    
+    def CorrectAllTypedefVariable(self,tab_c):
+        line_nr = 0
+        tab_temp = []
+        while line_nr<len(tab_c):
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            if len(line_without_comment.strip())<2:
+                #fileHandler_tmp.write(line)
+                self.tab_after_corrections.append(line)
+                self.nr_line+=1 
+                continue
+            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
+                #fileHandler_tmp.write(line)
+                self.tab_after_corrections.append(line)
+                #print(" ending marker ",line_without_comment.strip()[len(line_without_comment.strip())-1])
+
+                if  "#define" in line:
+                    while line.strip()[len(line.strip())-1] is ("\\"):
+                        self.nr_line+=1 
+                        line=self.tab_c[self.nr_line]
+                        #fileHandler_tmp.write(line)
+                        self.tab_after_corrections.append(line)
+                        print(line)
+                    #input("WordWithoutEndingCharacters  key ")
+
+                self.nr_line+=1
+                continue        
+    
+        
+        
+        
+        
+        
         
     def CorrectAllNames(self):
-        fileHandler_tmp = open(self.filename+".c"+"_ch","w")
-        self.dict_of_Variables_to_change={}
-        self.nr_line=0
+        self.tab_after_corrections=[]
         while self.nr_line < len(self.tab_c):
-            #line=self.tab_c[self.nr_line]      
             
             line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
-            print(self.nr_line,"\n wc ->:",line_without_comment,"\n\t",line,end='')
-            #print(" w c")
-            #input( " key ")
+            #print(self.nr_line,"\n wc ->:",line_without_comment,"\n\t",line,end='')
+
             if len(line_without_comment.strip())<2:
-                # print("empty line")
-                fileHandler_tmp.write(line)
+                #fileHandler_tmp.write(line)
+                self.tab_after_corrections.append(line)
                 self.nr_line+=1 
                 continue
             
-            
-            
-            
             if any(element in line_without_comment for element in WordWithoutEndingCharacters):
-                #print(line)
-                fileHandler_tmp.write(line)
+                #fileHandler_tmp.write(line)
+                self.tab_after_corrections.append(line)
                 #input(" key ")
                 
                 #print(" ending marker ",line_without_comment.strip()[len(line_without_comment.strip())-1])
@@ -464,10 +588,10 @@ class ClassToAnalyseCfile:
                     while line.strip()[len(line.strip())-1] is ("\\"):
                         self.nr_line+=1 
                         line=self.tab_c[self.nr_line]
-                        fileHandler_tmp.write(line)
+                        #fileHandler_tmp.write(line)
+                        self.tab_after_corrections.append(line)
                         print(line)
                     #input("WordWithoutEndingCharacters  key ")
-
                     
                 #else:
                 self.nr_line+=1
@@ -484,7 +608,6 @@ class ClassToAnalyseCfile:
                     
                     print(AllAnalysedVariableTypes_dict)
                     
-                    
                     if arg[0] in AllAnalysedVariableTypes_dict:
                         prefix = AllAnalysedVariableTypes_dict[arg[0]]
                     
@@ -493,59 +616,31 @@ class ClassToAnalyseCfile:
                         AllFunctionArgument[func_name]={arg[1]:new_var}
                 print(func_name)
                 print(AllFunctionArgument)
-                fileHandler_tmp.write(line)
+                #fileHandler_tmp.write(line)
+                self.tab_after_corrections.append(line)
                 self.nr_line+=1 
                 continue
                 input( " func ")
-                
             
             if self.InFunctionDeclaration == True:
-                pass
-            
-            
-            
-            # if any(word in line for word in WordWithoutEndingCharacters):
                 
-                # fileHandler_tmp.write(line)
-            
-            #line = self.CorrectCLine(line)
-            #print(line)
-            
-            
-            
-            #print(line_without_comment)
-            #input( " key ")
-            line_tab = self.DivideLine(line)
-            
-            
+                func_temp = ClassToAnalyseCfile(self.tab_func)
+                #func_temp.ShowCfile()
+                func_temp.CorrectAllNames()
                 
-            if "typedef" in line and ';' in line:
-                #print(line)
-                print(" searching variable ")
-                var = self.FindVariableinDefinition(line)
-                print(" var ",var)
-                
-                new_var,line  = self.AddPrefixToVariable(var,AllAnalysedVariableTypes_dict["typedef"],line)
-                
-                #line = line[]
-                
-                # print(line)
-                print("#"*100)
-                #line = line_without_comment  
-                fileHandler_tmp.write(line)
-                self.nr_line +=1
+                print(" dict ",func_temp.dict_of_Variables_to_change)
+                self.nr_line+=1 
                 continue
-                #input("key")
-                        
+                input(" key ")
+            
+            line_tab = self.DivideLine(line)
+                
             #if normal coding line
             if (';' in line)  and not "(" in line and not ")" in line and not '[' in line and not ']' in line:
-                
-                #print(" SPLITED : ",line_tab,end='')
                 
                 for var_is_already in self.dict_of_Variables_to_change.keys():
                     if var_is_already in line_tab:
                         print(" var is already in dict ",var_is_already)
-                        NextValue = True
                         line = line.replace(var_is_already, self.dict_of_Variables_to_change[var_is_already] )
                         break
                 
@@ -561,7 +656,6 @@ class ClassToAnalyseCfile:
                             # print(prefix,end='')
                             # prefix = prefix.replace('_','_p')
                             # print(" new :",prefix)
-                            
                     
                         print(" prefix for variable ",prefix)
                         #i am checking if this prefix is not already in variable
@@ -587,18 +681,21 @@ class ClassToAnalyseCfile:
     
             self.nr_line+=1            
             #input("key")
-            fileHandler_tmp.write(line)  
-            #print("\n" , line, "\n")
+            #fileHandler_tmp.write(line)  
             
         
         #file_handler.close()    
-        fileHandler_tmp.close()
+        #fileHandler_tmp.close()
         print("\n\n dict:")
         for key in self.dict_of_Variables_to_change.keys():
             print(key," = ",self.dict_of_Variables_to_change[key])
+  
+
     
-    def AnalyzeCfileObjects(self):
-        pass
+    
+    
+#############################################################################    
+    
     
 def MarkersHASH():
     
@@ -640,9 +737,8 @@ def  DecodeArguments():
             DIRECTORY = line_tab[1]
         elif "file=" in arguments:
             line_tab = arguments.split("=")
-           
+
             tabOfAnalyzedFiles.append(line_tab[1])
-    
     
     if (len(DIRECTORY)<1) and (len(tabOfAnalyzedFiles)<1):
         HelpInfo()
@@ -653,7 +749,7 @@ def  DecodeArguments():
 def ClosingApp(startTime):
     print(" All work took ",(time.time() - startTime)/60., " min ")
     sys.exit()
-   
+    
 def main():
     startTime = time.time()		
     #have to give  folder to look into
@@ -674,27 +770,48 @@ def main():
                 #AnalyseFileZFCoding(fileHandler)
     elif len(tabOfAnalyzedFiles)>0:
     
-        for file in tabOfAnalyzedFiles:
-        
-            
-            analyze = ClassToAnalyseCfile(file)
+        for filename in tabOfAnalyzedFiles:
+            #if ".c" in file or ".h" in file:
+            #    filename = file.split(".")[0]
+            print("$"*100)
+            print(filename)
+            try:    
+                file_c_p = open(filename,"r")
+                print("!"*100)
+                print(" I opened ",filename) 
+                print("!"*100)
+                tab_c = []
+                line = file_c_p.readline()
+
+                while(line):
+                    tab_c.append(line)
+                    line = file_c_p.readline()
+
+            except:
+                print("X"*100)
+                print(" cannot open file ",filename)
+                print("X"*100)
+                sys.exit()
+                
+            analyze = ClassToAnalyseCfile(tab_c)
+            #analyze.FindAllTypedefVar()
             
             
             #tab = analyze.RemoveAllCommentForAnalysis(analyze.tab_c)
-            #analyze.ShowCfile(tab)
-            #analyze.ShowHfile()
+            #analyze.ShowCfile()
+            analyze.AnalyzeAllIncludes()
+#            print(analyze.dict_of_Variables_to_change)
+#            print("\n"*10)
+#            input(" key ")
+            analyze.FindAllTypedefVar()
             
-            analyze.CorrectAllNames()
-            
-            # try:
-                                
-                # print(" opened file : ",file)
-                # print(" to write I opened file ", file+"_ch")
-            # except:
-                # print(" cannot open file ",file)
-                # ClosingApp(startTime)
-            #AnalyseFileZFCoding(fileHandler,fileHandler_tmp)
+            print(analyze.dict_of_Variables_to_change)
+            #input(" key ")
+            #analyze.CorrectAllNames()
+            #analyze.tab_c = 
     
+    for key in AllIncludes_d.keys():
+        print(key,"\t -> ",AllIncludes_d[key])
     
 if __name__ == '__main__':
     main()
