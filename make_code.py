@@ -2,6 +2,8 @@ import sys
 import os
 import shutil 
 import time
+import re
+
 global SCRIPT_FOLDER
 global VERSION
 VERSION = "1.09.08"
@@ -17,7 +19,7 @@ MODULE_PREFIX   =   "EDR"
 
 
 AllAnalysedVariableTypes_dict = {
-    "typedef":          "_t",
+    #"typedef":          "_t",
     "uint8_t":          "_u8",
     "uint8":            "_u8", 
     " int8_t":          '_i8',
@@ -44,7 +46,11 @@ WordWithoutEndingCharacters = (
     "#define",
     "#pragma",
     "#ifndef",
-    "#endif"
+    "#endif",
+    "#if",
+    "#error",
+    "#elif",
+    
     
 )
 
@@ -89,10 +95,8 @@ class ClassToAnalyseCfile:
     
     def __init__(self,tab):
     
-        self.tab_c = tab
-        
-        self.nr_line = 0
-        
+        self.tab_c = tab       
+        self.nr_line = 0     
         self.NextLineIsCommented = False
         self.InTypedefBlockDefinition = False
         #self.InTypedefLineDefinition = False
@@ -176,6 +180,7 @@ class ClassToAnalyseCfile:
             while line.count("{")>0 and line.count("}")>0:        
                 a1 = line.find("{")
                 a2 = len(line)-1
+                #here I remove everything between defining brackets
                 while line[a2] is not "}":
                     a2 -=1
                 line = line[:a1]+line[a2+1:]
@@ -208,28 +213,28 @@ class ClassToAnalyseCfile:
     def  AddPrefixToVariable(self,variable,prefix,line):
         #wrong prefix:
         new_var = variable
-        for pref in AllAnalysedVariableTypes_dict.values():
-            if pref is prefix:
-                #if same prefix it is ok to be in variable
-                continue
-            # print(pref)
-            if (pref in variable[(len(variable) - len(pref)): len(variable)]):
-                variable = variable.replace(pref,"")
+        print("Start:", variable, ":prefix ",prefix)
+#        for pref in AllAnalysedVariableTypes_dict.values():
+#            if pref is prefix:
+#                continue
+#            if (pref in variable[(len(variable) - len(pref)): len(variable)]):
+#                variable = variable.replace(pref,"")
                  
         #not real prefix - remove obsolete _xx (two letter max)
         if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]) :
-            i=variable[len(variable)-2:].find("_")
+            i=variable[len(variable)-4:].find("_")
             if i is not -1:
-                variable = variable[:i]
-                
-            new_var = variable+prefix
+                i = i + len(variable)-4
+                new_var = variable[:i]
+            #print("..",variable)    
+            new_var = new_var+prefix
             self.dict_of_Variables_to_change[variable]=new_var
                 
-            print(" I am adding new variables to dictionary of ")
+            print(" I am adding new variables to dictionary of ",new_var)
             
             line = line.replace(variable,new_var)
-            print(" after change ",line)
-            input(" key ")
+            print("Line after change ",line)
+            # input(" key ")
         else:
             print(" prefix ", prefix," already in variable ")
             
@@ -323,34 +328,39 @@ class ClassToAnalyseCfile:
             if  "#include" in line:
                 filename = line.strip().split(r'"')[1]
                 print(filename)
-                #input(" key ")
+                
                 try:    
                     file_c_p = open(filename,"r")
                     print("!"*100)
                     print(" I opened ",filename) 
                     print("!"*100)
-                    tab = []
+                    # input(" key ")
+                except:
+                    print("X"*100)
+                    print(" cannot open file :",filename,":")
+                    print("X"*100)
+                    AllIncludes_d[filename] = " not found "
+                    # input(" key ")
+                    self.nr_line +=1                    
+                    continue
+                    
+                tab = []
+                line = file_c_p.readline()
+
+                while(line):
+                    tab.append(line)
                     line = file_c_p.readline()
 
-                    while(line):
-                        tab.append(line)
-                        line = file_c_p.readline()
-
-                    inc = ClassToAnalyseCfile(tab)
-                    inc.FindAllTypedefVar()
-                    AllIncludes_d[filename]=inc.dict_of_Variables_to_change
-                    print(inc.dict_of_Variables_to_change)
-                
-                    self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
+                inc = ClassToAnalyseCfile(tab)
+                inc.FindAllTypedefVar()
+                AllIncludes_d[filename]=inc.dict_of_Variables_to_change
+                print(inc.dict_of_Variables_to_change)
+            
+                self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
                 
 #                    input(" key ")
                         
-                except:
-                    print("X"*100)
-                    print(" cannot open file ",filename)
-                    print("X"*100)
-                    AllIncludes_d[filename] = " not found "
-                    
+                
                 
             self.nr_line +=1
         
@@ -395,45 +405,14 @@ class ClassToAnalyseCfile:
                 var = self.FindVariableinDefinition(line)
                 print(" var ",var)
                 
-                new_var,line  = self.AddPrefixToVariable(var,AllAnalysedVariableTypes_dict["typedef"],line)
-                print(" var ",new_var)
+                new_var,line  = self.AddPrefixToVariable(var,"_t",line)
+                #AllAnalysedVariableTypes_dict["typedef"],line)
+                # print(" var ",new_var)
+                # input(" key ")
                 self.nr_line +=1
                 continue
         
-            if (';' in line)  and not "(" in line and not ")" in line and not '[' in line and not ']' in line:
-                
-                for var_is_already in self.dict_of_Variables_to_change.keys():
-                    if var_is_already in line_tab:
-                        print(" var is already in dict ",var_is_already)
-                        line = line.replace(var_is_already, self.dict_of_Variables_to_change[var_is_already] )
-                        break
-
-                for var_type in AllAnalysedVariableTypes_dict.keys():
-
-                    if var_type in line:
-                        #   if variable was defined  
-                        print(var_type," line = ",line_without_comment)
-                        variable = self.FindVariableinDefinition(line_without_comment)
-                        prefix = AllAnalysedVariableTypes_dict[var_type]
-                        prefix = self.IfPointerAdd_p(variable,prefix)
-                        # if '*' in line:
-                            # print(prefix,end='')
-                            # prefix = prefix.replace('_','_p')
-                            # print(" new :",prefix)
-
-                        print(" prefix for variable ",prefix)
-                        #i am checking if this prefix is not already in variable
-                        #print(variable)
-                        if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]) :
-                            new_var = variable+prefix
-                            print(new_var)
-                            self.dict_of_Variables_to_change[variable]=new_var
-                            print(" I am adding new variables to dictionary of ")
-                            line = line.replace(variable,new_var)
-                            print(" after change ",line,end='')
-                            break
-                        else:
-                            print(" prefix already in variable ")
+            
             
             self.nr_line +=1
             
@@ -514,13 +493,13 @@ class ClassToAnalyseCfile:
             self.nr_line +=1
                       
                 #LineFinish = True
-        print("*"*100)                    
-        print(" merge :",temp)
-        print("^"*100)
+        # print("*"*100)                    
+        # print(" merge :",temp)
+        # print("^"*100)
         if "(" in temp and ";" in temp and not '{' in temp:
             self.FunctionPrototype = True
             #print(temp)
-            print(temp.replace("\n"," "))
+            # print(temp.replace("\n"," "))
             temp = temp.replace("\n"," ")
             temp +="\n"
             #input(" func ")
@@ -558,6 +537,101 @@ class ClassToAnalyseCfile:
                 self.nr_line+=1
                 continue        
     
+    
+    def  FindAllInstancesOfTypes(self):
+        self.nr_line=0  
+        while self.nr_line < len(self.tab_c):
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            if len(line_without_comment.strip())<2:
+                #fileHandler_tmp.write(line)
+                #self.tab_after_corrections.append(line)
+                self.nr_line+=1 
+                continue
+                
+            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
+                self.tab_after_corrections.append(line)
+                if  "#define" in line:
+                    while line.strip()[len(line.strip())-1] is ("\\"):
+                        self.nr_line+=1 
+                        line=self.tab_c[self.nr_line]
+                
+                self.nr_line+=1
+                continue  
+                
+            line = self.MergeLineInDifferentLines(self.tab_c)
+            print(self.nr_line,"\n",line)
+            if self.InFunctionDeclaration == True:
+                self.nr_line +=1 
+                continue
+                
+            for searchedType in AllAnalysedVariableTypes_dict.keys():
+                tab_pointers=[]
+                regexp_const = searchedType+r'[\s\S]*const'+r'\s*\w*'
+                temp_var = re.findall(regexp_const,line)
+                if len(temp_var)>0:
+                    print(" all found regexp ",temp_var)
+                for ii in temp_var:
+                    print(" here is $const$ ",ii)
+                    print(" before change ",line)
+                    ii2 = ii.replace('const','')
+                    line=line.replace(ii,ii2)
+                    print(" after change ",line)
+                
+                regexp_pointer = searchedType+r'\s*[*]{1,4}[\s\S]\w*'
+                temp_var = re.findall(regexp_pointer,line)
+                for ii in temp_var:
+                    print(" here is $pointer$ ",ii)
+                    #here I remove * from line but know already that it is pointer
+                    line=line.replace('*','')
+                    print(" here is $pointer$ ",ii, line)
+                    tab_pointers.append(ii)
+                    #print(line)
+                
+                regexp1 = searchedType+r'\s*\w*'
+                regexp_func = searchedType+r'\s*\w*[\s\S][(]'
+                regexp3 = searchedType+' *'+r'\s*\w*'
+                
+                temp_var_func =re.findall(regexp_func,line)                
+                
+                temp_var =re.findall(regexp1,line)
+                #print("norm ",temp_var)
+                # if len(temp_var2)>0:
+                    # temp_var = temp_var2
+                    # temp_var = temp_var
+                # for func in  regexp_func:
+                    # if here is one of function it means do not change this
+                    # temp_func
+                
+                # if temp_var == []:
+                    # continue
+                
+                for res_re in temp_var:
+                    temp_tab=res_re.split()
+                    if len(temp_tab)>1:
+                        print(temp_var)
+                        variable_name = temp_tab[1]
+                        variable_type=temp_tab[0]
+                        if any(variable_name in func1 for func1 in temp_var_func):
+                            # print(temp_var_func," check ",variable_name in func1) 
+                            print( variable_name, " this is function name do not correct like variables ")
+                            continue
+                        
+                        print(" type ",variable_type,", var =:",variable_name)                 
+
+                        prefix = AllAnalysedVariableTypes_dict[variable_type]  
+                        for ii in tab_pointers:
+                            print(variable_name,ii)
+                            if variable_name in ii:
+                                print("new prefix ",prefix)
+                                prefix = prefix.replace("_","_p")
+                        new_var, aaa = self.AddPrefixToVariable(variable_name,prefix,res_re)
+                        print(" prefix for variable ",prefix, " new name ",new_var,"\n",aaa)
+                        
+                        # input( " key")
+                        # newvar=re.sub()
+                        # line= re.sub(r'\b'+searchedVar+r'\b',self.dict_of_Variables_to_change[searchedVar],line)
+            self.nr_line +=1        
+                    
         
     def  CorrectAllVariablesNames(self):
         self.nr_line=0
@@ -565,41 +639,16 @@ class ClassToAnalyseCfile:
         while self.nr_line < len(self.tab_c):
             
             line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
-            #print(self.nr_line,"\n wc ->:",line_without_comment,"\n\t",line,end='')
-
-            if len(line_without_comment.strip())<2:
-                #fileHandler_tmp.write(line)
+            if len(line_without_comment.strip())<2:                
                 self.tab_after_corrections.append(line)
                 self.nr_line+=1 
-                continue
-            
-            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
-                #fileHandler_tmp.write(line)
-                self.tab_after_corrections.append(line)
-                #input(" key ")
-                
-                #print(" ending marker ",line_without_comment.strip()[len(line_without_comment.strip())-1])
-                
-                if  "#define" in line:
-                    while line.strip()[len(line.strip())-1] is ("\\"):
-                        self.nr_line+=1 
-                        line=self.tab_c[self.nr_line]
-                        #fileHandler_tmp.write(line)
-                        self.tab_after_corrections.append(line)
-                        print(line)
-                    #input("WordWithoutEndingCharacters  key ")
-                    
-                #else:
-                self.nr_line+=1
-                    
-                continue        
-            
-            line = self.MergeLineInDifferentLines(self.tab_c)
+                continue            
             
             for searchedVar   in self.dict_of_Variables_to_change.keys():
-                #print(searchedVar)
-                if searchedVar in line:
-                    line=line.replace(searchedVar,self.dict_of_Variables_to_change[searchedVar])
+                
+                line= re.sub(r'\b'+searchedVar+r'\b',self.dict_of_Variables_to_change[searchedVar],line)
+                # print(" new value ",self.dict_of_Variables_to_change[searchedVar])
+            
                 
             self.tab_after_corrections.append(line)
             self.nr_line+=1
@@ -848,11 +897,12 @@ def main():
             #analyze.ShowCfile()
             analyze.AnalyzeAllIncludes()
 #            print(analyze.dict_of_Variables_to_change)
-#            print("\n"*10)
+            print("\n"*10)
 #            input(" key ")
             analyze.FindAllTypedefVar()
+            analyze.FindAllInstancesOfTypes()
             
-            print(analyze.dict_of_Variables_to_change)
+            
             
             analyze.CorrectAllVariablesNames()
             
@@ -860,9 +910,19 @@ def main():
             #input(" key ")
             
             #analyze.tab_c = 
+            
     
+    for key in analyze.dict_of_Variables_to_change.keys():
+        
+        print(key," -> ",analyze.dict_of_Variables_to_change[key])
+        
+    print("\n"*10," all includes files ")
     for key in AllIncludes_d.keys():
         print(key,"\t -> ",AllIncludes_d[key])
+        
+    print("\n"*10," all analyzed types ")    
+    for key in AllAnalysedVariableTypes_dict.keys():
+        print(key,"\t -> ",AllAnalysedVariableTypes_dict[key])
     
 if __name__ == '__main__':
     main()
