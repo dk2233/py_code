@@ -168,7 +168,6 @@ class ClassToAnalyseCfile:
                     variable = line_tab[i-1]
                     break
         else:
-            print(" tt ",line_tab)
             for i in range(0,len(line_tab)):
                 if ';' in line_tab[i]:
                     if len(line_tab[i])>1:
@@ -253,8 +252,11 @@ class ClassToAnalyseCfile:
             print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100, "\n\nself.InFunctionDeclaration ",self.FunctionPrototype )
             
             if self.FunctionPrototype is True:
+                
                 func_name,tab_arg = self.FunctionPrototypeInLine(line)
+                #print(" $func name ",func_name)
                 # input(" found func ")
+                AllFunctionArgument[func_name]={}
                 for arg in tab_arg:
                     print("^arg^ ",arg)
                     
@@ -264,7 +266,7 @@ class ClassToAnalyseCfile:
                     var_new, var_old = self.CheckPrefixforVariable(arg)
                     
                     if var_new != var_old:
-                        AllFunctionArgument[func_name]={var_old:var_new}
+                        AllFunctionArgument[func_name].update({var_old:var_new})
 #                print(func_name)
 #                print(AllFunctionArgument)
             
@@ -476,7 +478,7 @@ class ClassToAnalyseCfile:
         function_name = tab_func[0]
         print( " &Function name :",function_name)
                 
-        allArgument_tab = re.findall(r'[(]([\w\s,\*\[\]\(\)]+)[)]',string)
+        allArgument_tab = re.findall(r'[(]([\w\s\,\*\[\]\(\)]+)[)]',string)
         
         tab_arg = allArgument_tab[0].split(',')
         
@@ -745,6 +747,7 @@ class ClassToAnalyseCfile:
             tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*\;{1}',line)                            
             if len(tab_func_proto)>0:
                 print(" ^prototype ",tab_func_proto)
+                            
                 #input(" func ")
                 #print(self.nr_line,"\n",line)
                 if tab_func_proto[0] in AllFunctionArgument.keys():
@@ -762,7 +765,25 @@ class ClassToAnalyseCfile:
             if len(tab_func_declaration)>0:
                 print(" ^declaration ",tab_func_declaration)
                 print(line)
+                local_var_tab_dict ={}
+                tab_potential_local_var = re.findall(r'([\w]+[\s]+[\*]*[\s]*[\w]+)[\s]*[\=\;]{1}',line)
+                print("^*^ ", tab_potential_local_var )
+                for possible in tab_potential_local_var:  
+                    for typet in AllAnalysedVariableTypes_dict.keys():
+                        if typet in possible:
+                            print(typet, " in ",possible)
+                            #var = self.FindVariableinDefinition(possible)
+                            new_var, var = self.CheckPrefixforVariable(possible)
+                            local_var_tab_dict[var] = new_var
+                            
+                            print(" &&new var ",new_var," var ",var)
+                            line=re.sub(r'\b'+var+r'\b',new_var,line)            
+                            #input(" key ")
+                            break
+                            
                 
+                        
+                        
                 if tab_func_declaration[0] in AllFunctionArgument.keys():
                     dict_toChange = AllFunctionArgument[tab_func_declaration[0]]
                     
@@ -771,6 +792,10 @@ class ClassToAnalyseCfile:
 #                        line=re.sub(r'[\s]*'+key+r'[\s]*',dict_toChange[key],line)
                         # line=re.sub(key+r'[\s]*',dict_toChange[key],line)
                         line=re.sub(r'\b'+key+r'\b',dict_toChange[key],line)
+        
+                
+                    
+                    
                         #print(line)
                         #input(" arg ")
                 #input(" func ")
