@@ -13,7 +13,7 @@ global VERSION
 #to find definition
 #[\w]+[\s]+([\w])+[\s]*[(][\w\s,\*\[\]]+[)][\s]*{{1,}$
 
-VERSION = "1.09.08"
+VERSION = "1.09.27"
 DIRECTORY=""
 START_COMMENT_BLOCK = "/*"
 END_COMMENT_BLOCK= "*/"
@@ -104,14 +104,14 @@ class ClassToAnalyseCfile:
         self.tab_c = tab       
         self.nr_line = 0     
         self.NextLineIsCommented =      False
-        self.InTypedefBlockDefinition = False
+        # self.InTypedefBlockDefinition = False
         #self.InTypedefLineDefinition = False
         self.AnalyseThatVariable =      False
         self.FunctionPrototype =        False
         self.InFunctionDeclaration =    False
-        self.dict_of_Variables_to_change={}
-        self.tab_after_corrections=[]
-        
+        self.dict_of_Variables_to_change=   {}
+        self.tab_after_corrections=         []
+        self.tab_if_equality            =   []
         
         
         
@@ -126,17 +126,12 @@ class ClassToAnalyseCfile:
         """ this find all comments and return two strings - all line with strings together 
         and line without comments"""
         
-        line=tab[self.nr_line]
-        #print(self.nr_line,"\n",line)
+        line=tab[self.nr_line]        
         line_wc=line
-        if (START_COMMENT_BLOCK in line):
-        #and ( not END_COMMENT_BLOCK in line):
-            #self.NextLineIsCommented = True
-            
+        if (START_COMMENT_BLOCK in line):        
             while(not END_COMMENT_BLOCK in tab[self.nr_line]):
                 self.nr_line +=1
-                line +=tab[self.nr_line]
-                
+                line +=tab[self.nr_line]                
             line_wc=line[:line.find(START_COMMENT_BLOCK)]+line[line.find(END_COMMENT_BLOCK)+len(END_COMMENT_BLOCK):]
         elif r'//' in line:
         #and not any(element in line for element in WordWithoutEndingCharacters):
@@ -146,36 +141,6 @@ class ClassToAnalyseCfile:
      
     
     
-    def CorrectCLine(self,line):
-        """ it is for correct line, change forms of line """
-        
-        if "=" in line and not "==" in line and not "!=" in line :
-            nr = line.find("=")
-            if not line[nr+1] in AllEquality_tab:
-                line=line.replace("=","= ")
-            if not line[nr-1] in AllEquality_tab:
-                line=line.replace("="," =")
-                
-        if ";" in line:
-            nr = line.find(";")
-            i = nr-1
-            while line[i].isspace():
-                line = line[:i]+line[i+1:]
-                nr = line.find(";")
-                i=nr-1
-                
-        if '(' and ')' in line and not "#define" in line:
-            # iaminafunction = True
-            for mark in ("(",")","[","]"):
-                nr = line.find(mark)
-                i = nr-1
-                if not line[nr+1].isspace():
-                    line=line.replace(mark,mark+" ")
-                if not line[nr-1].isspace():
-                    line=line.replace(mark," "+mark)
-            print(line)
-            #input(" key ")
-        return(line)
     
     
     def DivideLine(self,line):
@@ -221,198 +186,7 @@ class ClassToAnalyseCfile:
     
     
     
-    def  CheckPrefixforVariable(self,string):
-        print(string)
-        string = re.sub(r'[\s]*const[\s]+'," ",string)    
-        print(string)    
-        #WHAT IS name
-        #t_name = re.findall(r'[const[\s]*]?[\w]+[\s]+[\*]*[\s]*([\w]+)',string)
-        t_name = re.findall(r'[\w]+[\s]+[\*]*[\s]*([\w]+)',string)
-        variable_name = t_name[0]
-        
-        t_name = re.findall(r'[const[\s]*]?([\w]+)[\s]+[\*]*[\s]*'+variable_name, string)
-        variable_type = t_name[0]
-        print(" regexp resul :",t_name)
-        print(" var name ",variable_name, " var type ",variable_type)
-        
-        #checking if array
-        tab_array_var =[]
-        regexp_array = variable_name+r'[[]'
-        temp_var = re.findall(regexp_array,string)        
-        for ii in temp_var:
-            tab_array_var.append(ii)
-            print(" this is array ",ii)
-            
-        if variable_type  in AllAnalysedVariableTypes_dict.keys():
-            prefix_proposed = AllAnalysedVariableTypes_dict[variable_type]
-        else:
-            prefix_proposed =""
-        
-        #string analysing to find all types    
-         
-        tab_pointers=[]
-        
-            
-        regexp_pointer = variable_type+r'[\s]*[*]{1,4}[\s\S]\w*'
-        temp_var = re.findall(regexp_pointer,string)
-        for ii in temp_var:
-            print(" here is $pointer$ ",ii)
-            #here I remove * from string but know already that it is pointer
-            string=string.replace('*','')
-            print(" here is $pointer$ ",ii, string)
-            tab_pointers.append(ii)
-            #print(string)
-                            
-        prefix =prefix_proposed
-        
-        print("^ARRAY^ is ",variable_name," in ",variable_name in tab_array_var)
-
-        if  variable_name in tab_array_var:
-            #print("new prefix ",prefix_proposed)
-            prefix = prefix_proposed.replace("_",ARRAY_PREFIX)
-
-        for ii in tab_pointers:
-            print(variable_name,ii)
-            if variable_name in ii:
-                print("new prefix ",prefix)
-                prefix = prefix.replace("_",POINTER_PREFIX)
-
-        new_var, aaa = self.AddPrefixToVariable(variable_name,prefix,string)
-#        if new_var != variable_name:
-#            self.dict_of_Variables_to_change[variable_name]=new_var
-
-        print(" $prefix$ for variable ",prefix, " new name ",new_var,"\n",aaa)
-
-                # input( " key")
-                # newvar=re.sub()
-                # line= re.sub(r'\b'+searchedVar+r'\b',self.dict_of_Variables_to_change[searchedVar],line)
-
     
-    
-        return new_var,variable_name
-    
-    
-    def  AddPrefixToVariable(self,variable,prefix,line):
-        #wrong prefix:
-        new_var = variable
-        
-        #not real prefix - remove obsolete _xx (two letter max)
-        if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]) :
-            i=variable[len(variable)-HOW_MANY_LETTERS_FROM_WORD_END:].find("_")
-            if i is not -1:
-                i = i + len(variable)-HOW_MANY_LETTERS_FROM_WORD_END
-                new_var = variable[:i]
-            #print("..",variable)    
-            new_var = new_var+prefix
-            
-                
-            print(" I am adding new variables to dictionary of ",new_var)
-            
-            line = line.replace(variable,new_var)
-            print("Line after change ",line)
-            # input(" key ")
-        else:
-            print(" prefix ", prefix," already in variable ")
-            
-        if "enum" in line and "typedef" in line:
-            AllAnalysedVariableTypes_dict[variable]="_e"
-    
-        return new_var,line
-    
-    
-    def FunctionPrototypeInLine(self,string):
-        """ to find all functions """
-        
-        #finding function name
-        # tab_func = re.findall(r'([\w]*)[\s]*[(][\w]+[\s*]+[\w]+[)][\s]*;{1,}$',temp)   
-        # tab_func = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,*]+[)][\s]*;{1,}$',temp)
-        tab_func = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1,}$',string)        
-        function_name = tab_func[0]
-        print( " &Function name :",function_name)
-                
-        allArgument_tab = re.findall(r'[(]([\w\s,\*\[\]\(\)]+)[)]',string)
-        
-        tab_arg = allArgument_tab[0].split(',')
-        
-        return function_name, tab_arg
-
-    
-    
-    
-    
-    def IfPointerAdd_p(self,variable,prefix):
-        if "*" in variable[0]:
-            prefix = prefix.replace("_",POINTER_PREFIX)
-        return prefix    
-    
-    
-                
-            
-            
-            
-    def  AnalyzeAllIncludes(self):
-        self.nr_line = 0
-        while self.nr_line<len(self.tab_c):
-            
-            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
-            
-            if len(line_without_comment.strip())<2:
-                self.nr_line+=1 
-                continue
-                
-            if  "#include" in line:
-                filename = line.strip().split(r'"')[1]
-                print(filename)
-                
-                try:    
-                    file_c_p = open(filename,"r")
-                    print("!"*100)
-                    print(" I opened ",filename) 
-                    print("!"*100)
-                    # input(" key ")
-                except:
-                    print("X"*100)
-                    print(" cannot open file :",filename,":")
-                    print("X"*100)
-                    AllIncludes_d[filename] = " not found "
-                    # input(" key ")
-                    self.nr_line +=1                    
-                    continue
-                    
-                tab = []
-                line = file_c_p.readline()
-
-                while(line):
-                    tab.append(line)
-                    line = file_c_p.readline()
-
-                inc = ClassToAnalyseCfile(tab)
-                inc.FindAllTypedefVar()
-                AllIncludes_d[filename]=inc.dict_of_Variables_to_change
-                print(inc.dict_of_Variables_to_change)
-            
-                self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
-                
-#                    input(" key ")
-                        
-                
-                
-            self.nr_line +=1
-        
-        
-        
-        
-        
-    def IsThisWord(self,string):
-        isWord = False
-        if len(string)>2:
-            if not any(mark in string for mark in SignNotForWord):
-                isWord = True
-        return isWord  
-                
-
-        
-        
         
         
     def FindAllTypedefVar(self):
@@ -453,120 +227,6 @@ class ClassToAnalyseCfile:
             self.nr_line +=1
             
             
-            
-            
-    def MergeLineInDifferentLines(self,tab):
-        """ method to connect all lines that are one statement, but divided during development for readibility 
-        
-        it sees that:
-        - line has ';' that is simple statement but couple of lines can be one statemen
-        - line can has function prototype it has () and ;
-        - line can start function definitions in that case we have more then two words + ()+ { and ending }
-        """                       
-        temp = ""
-        temp_wc = ""
-        self.tab_func = []
-        level_of_para = 0
-        level_of_para_func = 0
-        
-        self.FunctionPrototype = False
-        wordCountBeforeParanthesis = 0
-        
-        LineFinish = False
-        self.InFunctionDeclaration = False
-
-        while not LineFinish:
-            line,line_without_comment = self.CheckWhetherLineCommented(tab)
-                    
-            # if  any(func in line for func in AllFunctionArgument):
-                # print(" that function ",func, " is in tab functions ")
-                
-            
-            temp +=line
-            temp_wc +=line_without_comment
-            self.tab_func.append(line)
-            # line_without_comment = line_without_comment.replace("("," ( ")
-            # line_without_comment = line_without_comment.replace(")"," ) ")
-            
-            
-            # tab_func = re.findall(r'([\w]*)[\s]*[(][\w]+[\s*]+[\w]+[)][\s]*;{1,}$',temp)
-            tab_func = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1,}$',temp_wc)
-            if len(tab_func)>0:
-                print(temp)
-                print(" ##tab func ",tab_func)
-                #AllFunctionArgument.append(tab_func)
-                self.FunctionPrototype = True
-                # input( " func ")
-                break
-                
-            
-            t1  = ( line_without_comment.strip() ).split()
-            for word in t1:
-                if self.InFunctionDeclaration == True:
-                    wordCountBeforeParanthesis = 0
-                    break
-                    
-                if "{" in word and "(" in temp and ")" in temp:
-                    if wordCountBeforeParanthesis >=2 :
-                        self.InFunctionDeclaration = True
-                        #print(temp)
-                        #LineFinish = True
-#                        input(" i am in the function ")
-                
-                if self.IsThisWord(word) == True:
-                    wordCountBeforeParanthesis +=1
-#                elif "(" in word:
-#                    wordCountBeforeParanthesis = 0
-#            
-            
-            level_of_para += line_without_comment.count("{")
-            level_of_para -= line_without_comment.count("}")
-            
-            # level_of_para_func += line_without_comment.count("(")
-            # level_of_para_func -= line_without_comment.count(")")
-                
-            if ';' in line and (level_of_para == 0) and self.InFunctionDeclaration == False:
-                LineFinish = True
-                break
-            
-            if self.InFunctionDeclaration == True and (level_of_para == 0) and "}" in line:
-                LineFinish = True
-                break
-                
-            self.nr_line +=1
-                      
-        
-        return(temp)    
-    
-    
-    
-    def CorrectAllTypedefVariable(self,tab_c):
-        line_nr = 0
-        tab_temp = []
-        while line_nr<len(tab_c):
-            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
-            if len(line_without_comment.strip())<2:
-                #fileHandler_tmp.write(line)
-                self.tab_after_corrections.append(line)
-                self.nr_line+=1 
-                continue
-            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
-                #fileHandler_tmp.write(line)
-                self.tab_after_corrections.append(line)
-                #print(" ending marker ",line_without_comment.strip()[len(line_without_comment.strip())-1])
-
-                if  "#define" in line:
-                    while line.strip()[len(line.strip())-1] is ("\\"):
-                        self.nr_line+=1 
-                        line=self.tab_c[self.nr_line]
-                        #fileHandler_tmp.write(line)
-                        self.tab_after_corrections.append(line)
-                        print(line)
-                    #input("WordWithoutEndingCharacters  key ")
-
-                self.nr_line+=1
-                continue        
-    
     
     def  FindAllInstancesOfTypes(self):
         ''' I find here all types and also types arguments in function '''    
@@ -590,10 +250,11 @@ class ClassToAnalyseCfile:
                 continue  
                 
             line = self.MergeLineInDifferentLines(self.tab_c)
-            print(self.nr_line,"\n",line[0:50],"\n......")
+            print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100, "\n\nself.InFunctionDeclaration ",self.FunctionPrototype )
             
-            if self.FunctionPrototype == True:
+            if self.FunctionPrototype is True:
                 func_name,tab_arg = self.FunctionPrototypeInLine(line)
+                # input(" found func ")
                 for arg in tab_arg:
                     print("^arg^ ",arg)
                     
@@ -695,6 +356,327 @@ class ClassToAnalyseCfile:
                         # line= re.sub(r'\b'+searchedVar+r'\b',self.dict_of_Variables_to_change[searchedVar],line)
             self.nr_line +=1        
                     
+    
+    
+    
+    def  CheckPrefixforVariable(self,string):
+        print(string)
+        string = re.sub(r'[\s]*const[\s]+'," ",string)    
+        print(string)    
+        #WHAT IS name
+        #t_name = re.findall(r'[const[\s]*]?[\w]+[\s]+[\*]*[\s]*([\w]+)',string)
+        t_name = re.findall(r'[\w]+[\s]+[\*]*[\s]*([\w]+)',string)
+        variable_name = t_name[0]
+        
+        t_name = re.findall(r'[const[\s]*]?([\w]+)[\s]+[\*]*[\s]*'+variable_name, string)
+        variable_type = t_name[0]
+        print(" regexp resul :",t_name)
+        print(" var name ",variable_name, " var type ",variable_type)
+        
+        #checking if array
+        tab_array_var =[]
+        regexp_array = variable_name+r'[[]'
+        temp_var = re.findall(regexp_array,string)        
+        for ii in temp_var:
+            tab_array_var.append(ii)
+            print(" this is array ",ii)
+            
+        if variable_type  in AllAnalysedVariableTypes_dict.keys():
+            prefix_proposed = AllAnalysedVariableTypes_dict[variable_type]
+        else:
+            prefix_proposed =""
+        
+        #string analysing to find all types    
+         
+        tab_pointers=[]        
+            
+        regexp_pointer = variable_type+r'[\s]*[*]{1,4}[\s\S]\w*'
+        temp_var = re.findall(regexp_pointer,string)
+        for ii in temp_var:
+            print(" here is $pointer$ ",ii)
+            #here I remove * from string but know already that it is pointer
+            string=string.replace('*','')
+            print(" here is $pointer$ ",ii, string)
+            tab_pointers.append(ii)
+            #print(string)
+                            
+        prefix =prefix_proposed
+        
+        print("^ARRAY^ is ",variable_name," in ",variable_name in tab_array_var)
+
+        if  variable_name in tab_array_var:
+            #print("new prefix ",prefix_proposed)
+            prefix = prefix_proposed.replace("_",ARRAY_PREFIX)
+
+        for ii in tab_pointers:
+            print(variable_name,ii)
+            if variable_name in ii:
+                print("new prefix ",prefix)
+                prefix = prefix.replace("_",POINTER_PREFIX)
+
+        new_var, aaa = self.AddPrefixToVariable(variable_name,prefix,string)
+#        if new_var != variable_name:
+#            self.dict_of_Variables_to_change[variable_name]=new_var
+
+        print(" $prefix$ for variable ",prefix, " new name ",new_var,"\n",aaa)
+
+                # input( " key")
+                # newvar=re.sub()
+                # line= re.sub(r'\b'+searchedVar+r'\b',self.dict_of_Variables_to_change[searchedVar],line)
+
+    
+    
+        return new_var,variable_name
+    
+    
+    def  AddPrefixToVariable(self,variable,prefix,line):
+        #wrong prefix:
+        new_var = variable        
+        #not real prefix - remove obsolete _xx (two letter max)
+        if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]):
+            
+            i=variable[len(variable)-HOW_MANY_LETTERS_FROM_WORD_END:].find("_")
+            if i is not -1:
+                i = i + len(variable)-HOW_MANY_LETTERS_FROM_WORD_END
+                for pref in AllAnalysedVariableTypes_dict.values():
+                    # print(pref)
+                    if pref == prefix:
+                        continue
+                    for pref2 in [pref,pref.replace("_","_p"),  pref.replace("_","_a") ]:
+                        if pref2 in variable[i:]:                        
+                            new_var = variable.replace(pref2,"")
+                            break
+                    if   new_var != variable:
+                        break
+            #print("..",variable)    
+            new_var = new_var+prefix
+            
+                
+            print(" I am adding new variables to dictionary of ",new_var)
+            
+            line = line.replace(variable,new_var)
+            print("Line after change ",line)
+            # input(" key ")
+        else:
+            print(" prefix ", prefix," already in variable ")
+            
+        if "enum" in line and "typedef" in line:
+            AllAnalysedVariableTypes_dict[variable]="_e"
+    
+        return new_var,line
+    
+    
+    def FunctionPrototypeInLine(self,string):
+        """ to find all functions """
+        
+        #finding function name
+        # tab_func = re.findall(r'([\w]*)[\s]*[(][\w]+[\s*]+[\w]+[)][\s]*;{1,}$',temp)   
+        # tab_func = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,*]+[)][\s]*;{1,}$',temp)
+        tab_func = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1,}$',string)        
+        function_name = tab_func[0]
+        print( " &Function name :",function_name)
+                
+        allArgument_tab = re.findall(r'[(]([\w\s,\*\[\]\(\)]+)[)]',string)
+        
+        tab_arg = allArgument_tab[0].split(',')
+        
+        return function_name, tab_arg
+
+    
+            
+            
+            
+    def  AnalyzeAllIncludes(self):
+        self.nr_line = 0
+        while self.nr_line<len(self.tab_c):
+            
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            
+            if len(line_without_comment.strip())<2:
+                self.nr_line+=1 
+                continue
+                
+            if  "#include" in line:
+                filename = line.strip().split(r'"')[1]
+                print(filename)
+                
+                try:    
+                    file_c_p = open(filename,"r")
+                    print("!"*100)
+                    print(" I opened ",filename) 
+                    print("!"*100)
+                    # input(" key ")
+                except:
+                    print("X"*100)
+                    print(" cannot open file :",filename,":")
+                    print("X"*100)
+                    AllIncludes_d[filename] = " not found "
+                    # input(" key ")
+                    self.nr_line +=1                    
+                    continue
+                    
+                tab = []
+                line = file_c_p.readline()
+
+                while(line):
+                    tab.append(line)
+                    line = file_c_p.readline()
+                file_c_p.close()
+                
+                inc = ClassToAnalyseCfile(tab)
+                inc.FindAllTypedefVar()
+                inc.FindAllInstancesOfTypes() 
+                tab = inc.CorrectAllVariablesNames(inc.tab_c)
+                tab = inc.CorrectAllFunctions(tab)            
+                inc.SaveAllTab(filename+"_ch", tab)
+            
+                AllIncludes_d[filename]=inc.dict_of_Variables_to_change
+                print(inc.dict_of_Variables_to_change)
+            
+                self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
+                
+#                    input(" key ")
+                        
+                
+                
+            self.nr_line +=1
+        
+        
+        
+        
+        
+    def IsThisWord(self,string):
+        isWord = False
+        if len(string)>2:
+            if not any(mark in string for mark in SignNotForWord):
+                isWord = True
+        return isWord  
+                
+
+        
+        
+    
+            
+            
+    def MergeLineInDifferentLines(self,tab):
+        """ method to connect all lines that are one statement, but divided during development for readibility 
+        
+        it sees that:
+        - line has ';' that is simple statement but couple of lines can be one statemen
+        - line can has function prototype it has () and ;
+        - line can start function definitions in that case we have more then two words + ()+ { and ending }
+        """                       
+        temp = ""
+        temp_wc = ""
+        self.tab_func = []
+        level_of_para = 0
+        level_of_para_func = 0
+        
+        self.FunctionPrototype = False
+        wordCountBeforeParanthesis = 0
+        
+        LineFinish = False
+        self.InFunctionDeclaration = False
+
+        while not LineFinish:
+            line,line_without_comment = self.CheckWhetherLineCommented(tab)
+                    
+            # if  any(func in line for func in AllFunctionArgument):
+                # print(" that function ",func, " is in tab functions ")
+                
+            line_without_comment = line_without_comment.replace("("," ( ")
+            line_without_comment = line_without_comment.replace(")"," ) ")
+            temp +=line
+            temp_wc +=line_without_comment
+            self.tab_func.append(line)
+            
+            # print(self.InFunctionDeclaration,temp)
+            #try to find function prototype
+            if self.InFunctionDeclaration is False:
+                tab_func = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*\;{1}',temp_wc)
+                if len(tab_func)>0:
+                    print(temp)
+                    print(" ##tab func ",tab_func)                
+                    self.FunctionPrototype = True
+                    # input(" prototype ")
+                    break
+                    
+            
+            t1  = ( line_without_comment.strip() ).split()
+            for word in t1:
+                if self.InFunctionDeclaration == True:
+                    wordCountBeforeParanthesis = 0
+                    break
+                    
+                if "{" in word and "(" in temp and ")" in temp:
+                    if wordCountBeforeParanthesis >=2 :
+                        self.InFunctionDeclaration = True
+                        #print(temp)
+                        #LineFinish = True
+#                        input(" i am in the function ")
+                
+                if self.IsThisWord(word) == True:
+                    wordCountBeforeParanthesis +=1
+#                elif "(" in word:
+#                    wordCountBeforeParanthesis = 0
+#            
+            
+            level_of_para += line_without_comment.count("{")
+            level_of_para -= line_without_comment.count("}")
+            
+                
+            if ';' in line and (level_of_para == 0) and self.InFunctionDeclaration == False:
+                LineFinish = True
+                break
+            
+            if self.InFunctionDeclaration == True and (level_of_para == 0) and "}" in line:
+                LineFinish = True
+                break
+                
+            self.nr_line +=1
+                      
+        print("*"*100)                    
+        print(" merge :",temp)
+        print("^"*100)
+        # if "(" in temp and ";" in temp and not '{' in temp:
+            # self.FunctionPrototype = True            
+            # print(temp.replace("\n"," "))
+            # temp = temp.replace("\n"," ")
+            # temp +="\n"
+            
+        return(temp)    
+    
+    
+    
+    def CorrectAllTypedefVariable(self,tab_c):
+        line_nr = 0
+        tab_temp = []
+        while line_nr<len(tab_c):
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            if len(line_without_comment.strip())<2:
+                #fileHandler_tmp.write(line)
+                self.tab_after_corrections.append(line)
+                self.nr_line+=1 
+                continue
+            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
+                #fileHandler_tmp.write(line)
+                self.tab_after_corrections.append(line)
+                #print(" ending marker ",line_without_comment.strip()[len(line_without_comment.strip())-1])
+
+                if  "#define" in line:
+                    while line.strip()[len(line.strip())-1] is ("\\"):
+                        self.nr_line+=1 
+                        line=self.tab_c[self.nr_line]
+                        #fileHandler_tmp.write(line)
+                        self.tab_after_corrections.append(line)
+                        print(line)
+                    #input("WordWithoutEndingCharacters  key ")
+
+                self.nr_line+=1
+                continue        
+    
+    
+    
         
     def  CorrectAllVariablesNames(self,tab):
         self.nr_line=0
@@ -754,28 +736,29 @@ class ClassToAnalyseCfile:
                 continue 
                 
             line = self.MergeLineInDifferentLines(tab)
-            print(self.nr_line,"\n",line[0:250],"\n......")
+            #print(self.nr_line,"\n",line[0:250],"\n......")
+            print("$"*100,self.nr_line,"\n",line,"\n"*2)
             
             
             #tab_func =       re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1,}$',string)        
-            tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1}$',line)
-                                        
+            # tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1}$',line)
+            tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*\;{1}',line)                            
             if len(tab_func_proto)>0:
                 print(" ^prototype ",tab_func_proto)
                 #input(" func ")
                 #print(self.nr_line,"\n",line)
                 if tab_func_proto[0] in AllFunctionArgument.keys():
                     dict_toChange = AllFunctionArgument[tab_func_proto[0]]
-                    print(" ifffem ",dict_toChange)
+                    # print(" ifffem ",dict_toChange)
                     
                     for key in dict_toChange:
                         #print(key)
 #                        line=re.sub(r'[\s]*'+key+r'[\s]*',dict_toChange[key],line)
-                        line=re.sub(key+r'[\s]*',dict_toChange[key],line)
+                        line=re.sub(r'\b'+key+r'\b',dict_toChange[key],line)
                         print(line)
                         #input(" arg ")
             
-            tab_func_declaration = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*[\{]{1,}[\s\S\{\}]*[\}]{1}$',line)
+            tab_func_declaration = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*[\{]{1}[\s\S\{\}]*[\}]{1}$',line)
             if len(tab_func_declaration)>0:
                 print(" ^declaration ",tab_func_declaration)
                 print(line)
@@ -784,9 +767,10 @@ class ClassToAnalyseCfile:
                     dict_toChange = AllFunctionArgument[tab_func_declaration[0]]
                     
                     for key in dict_toChange:
-                        #print(key)
+                        print(" ^var to change^ ",key)
 #                        line=re.sub(r'[\s]*'+key+r'[\s]*',dict_toChange[key],line)
-                        line=re.sub(key+r'[\s]*',dict_toChange[key],line)
+                        # line=re.sub(key+r'[\s]*',dict_toChange[key],line)
+                        line=re.sub(r'\b'+key+r'\b',dict_toChange[key],line)
                         #print(line)
                         #input(" arg ")
                 #input(" func ")
@@ -812,8 +796,33 @@ class ClassToAnalyseCfile:
         
         file.close()
     
-    
-    
+    def   FindAllIfStatement(self,tab,comparising):
+        self.nr_line = 0
+        
+        while self.nr_line<len(tab):
+            
+            line,line_without_comment = self.CheckWhetherLineCommented(tab)
+            if len(line_without_comment.strip())<2:
+                self.nr_line+=1 
+                continue
+            
+            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
+                if  "#define" in line:
+                    while line.strip()[len(line.strip())-1] is ("\\"):
+                        self.nr_line+=1 
+                        line=tab[self.nr_line]
+                self.nr_line+=1
+                continue   
+            
+            # tab_statement = re.findall(r'if[\s]*\([\w\s]*==[\w\s]*',line)
+            tab_statement = re.findall(r'if[\s]*[\(\s]*(?:[\&\|\w\s\[\]\(\)\*\,]+'+comparising+'[\s\w\[\]\(\)\*\&\|\,]+)+[\s]*[\)]+[\s]*\{',line)
+            if len(tab_statement)>0:
+                for word in tab_statement:                
+                    self.tab_if_equality.append(word+"\n")                
+            self.nr_line +=1
+            
+        self.tab_if_equality.append("\n\n how many if statements :"+str(len(self.tab_if_equality))+"\n" )   
+            
 #############################################################################    
     
     
@@ -901,7 +910,8 @@ def main():
                 while(line):
                     tab_c.append(line)
                     line = file_c_p.readline()
-
+                file_c_p.close()
+                
             except:
                 print("X"*100)
                 print(" cannot open file ",filename)
@@ -918,18 +928,20 @@ def main():
             analyze.FindAllTypedefVar()
             analyze.FindAllInstancesOfTypes() 
             tab = analyze.CorrectAllVariablesNames(analyze.tab_c)
-            tab = analyze.CorrectAllFunctions(tab)
-            
-            
+            tab = analyze.CorrectAllFunctions(tab)  
+            analyze.FindAllIfStatement(tab,"==")
+            analyze.FindAllIfStatement(tab,"!=")
             
             analyze.SaveAllTab(filename+"_ch", tab)
-            #input(" key ")
+            analyze.SaveAllTab(filename+"_if", analyze.tab_if_equality)
             
-            #analyze.tab_c = 
             
+            
+            
+            
+#Lists all tables
     print("\n"*5," all variable to change \n")
-    for key in analyze.dict_of_Variables_to_change.keys():
-        
+    for key in analyze.dict_of_Variables_to_change.keys():        
         print(key," -> ",analyze.dict_of_Variables_to_change[key])
         
     print("\n"*10," all includes files ")
