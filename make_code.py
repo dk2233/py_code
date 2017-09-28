@@ -119,8 +119,11 @@ class ClassToAnalyseCfile:
         for element in self.tab_c:
             print(element,end="")
         
+    def ShowAllVariablesToChange(self):    
+        print("\n"*5," all variable to change \n")
         
-        
+        for key in self.dict_of_Variables_to_change.keys():        
+            print(key," -> ",self.dict_of_Variables_to_change[key])    
         
     def CheckWhetherLineCommented(self,tab):
         """ this find all comments and return two strings - all line with strings together 
@@ -178,7 +181,7 @@ class ClassToAnalyseCfile:
                         #in case someone gave space between variable name and ;
                         variable = line_tab[i-1]
                     break
-        print(line_tab,end="" )
+        # print(line_tab,end="" )
         print(" var = ",variable)
         return( variable)
     
@@ -229,12 +232,13 @@ class ClassToAnalyseCfile:
     
     def  FindAllInstancesOfTypes(self):
         ''' I find here all types and also types arguments in function '''    
+        print("\n"*5,"&"*100)
+        print(" Here I am in all variables finding")
+        print("&"*100,"\n"*5)
         self.nr_line=0  
         while self.nr_line < len(self.tab_c):
             line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
             if len(line_without_comment.strip())<2:
-                #fileHandler_tmp.write(line)
-                #self.tab_after_corrections.append(line)
                 self.nr_line+=1 
                 continue
                 
@@ -243,23 +247,21 @@ class ClassToAnalyseCfile:
                 if  "#define" in line:
                     while line.strip()[len(line.strip())-1] is ("\\"):
                         self.nr_line+=1 
-                        line=self.tab_c[self.nr_line]
-                
+                        line=self.tab_c[self.nr_line]                
                 self.nr_line+=1
                 continue  
                 
             line = self.MergeLineInDifferentLines(self.tab_c)
-            print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100, "\n\nself.InFunctionDeclaration ",self.FunctionPrototype )
+            # print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100, "\n\nself.InFunctionDeclaration ",self.FunctionPrototype )
             
             if self.FunctionPrototype is True:
                 
-                func_name,tab_arg = self.FunctionPrototypeInLine(line)
-                #print(" $func name ",func_name)
-                # input(" found func ")
+                func_name,tab_arg = self.PrototypeFuncAnalysis(line)
+                print(" !I found prototype! ",func_name)
+                print(" arguments :",tab_arg)
                 AllFunctionArgument[func_name]={}
                 for arg in tab_arg:
-                    print("^arg^ ",arg)
-                    
+                    print("^arg^ ",arg)                    
                     if "void" in arg:
                         continue
                     
@@ -267,14 +269,16 @@ class ClassToAnalyseCfile:
                     
                     if var_new != var_old:
                         AllFunctionArgument[func_name].update({var_old:var_new})
-#                print(func_name)
+#                
 #                print(AllFunctionArgument)
             
             if self.InFunctionDeclaration == True or self.FunctionPrototype == True:
                 self.nr_line +=1 
                 continue
             
-
+            
+            # print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100)
+            
             #check if here is array
             tab_array_var =[]
             regexp_array = r'[\w]*[\s]*(\w*)[[]'
@@ -344,7 +348,7 @@ class ClassToAnalyseCfile:
                             
                             
                             if variable_name in ii:
-                                print("new prefix ",prefix)
+                                print("@@@new prefix ",prefix)
                                 prefix = prefix.replace("_",POINTER_PREFIX)
                             
                         new_var, aaa = self.AddPrefixToVariable(variable_name,prefix,res_re)
@@ -395,10 +399,10 @@ class ClassToAnalyseCfile:
         regexp_pointer = variable_type+r'[\s]*[*]{1,4}[\s\S]\w*'
         temp_var = re.findall(regexp_pointer,string)
         for ii in temp_var:
-            print(" here is $pointer$ ",ii)
+            # print(" here is $pointer$ ",ii)
             #here I remove * from string but know already that it is pointer
             string=string.replace('*','')
-            print(" here is $pointer$ ",ii, string)
+            # print(" here is $pointer$ ",ii, string)
             tab_pointers.append(ii)
             #print(string)
                             
@@ -468,7 +472,7 @@ class ClassToAnalyseCfile:
         return new_var,line
     
     
-    def FunctionPrototypeInLine(self,string):
+    def PrototypeFuncAnalysis(self,string):
         """ to find all functions """
         
         #finding function name
@@ -638,7 +642,7 @@ class ClassToAnalyseCfile:
             self.nr_line +=1
                       
         print("*"*100)                    
-        print(" merge :",temp)
+        print(" merge :",temp[0:100])
         print("^"*100)
         # if "(" in temp and ";" in temp and not '{' in temp:
             # self.FunctionPrototype = True            
@@ -671,7 +675,7 @@ class ClassToAnalyseCfile:
                         line=self.tab_c[self.nr_line]
                         #fileHandler_tmp.write(line)
                         self.tab_after_corrections.append(line)
-                        print(line)
+                        # print(line)
                     #input("WordWithoutEndingCharacters  key ")
 
                 self.nr_line+=1
@@ -690,10 +694,16 @@ class ClassToAnalyseCfile:
                 self.tab_after_corrections.append(line)
                 self.nr_line+=1 
                 continue            
-            
+            # print(line)
+            # print(self.dict_of_Variables_to_change.keys())
             for searchedVar   in self.dict_of_Variables_to_change.keys():
-                # print(searchedVar)
-                line= re.sub(r'\b'+searchedVar+r'\b',self.dict_of_Variables_to_change[searchedVar],line)
+                
+                line2= re.sub(r'\b'+searchedVar+r'\b',self.dict_of_Variables_to_change[searchedVar],line)
+                if line != line2:    
+                    print(searchedVar)
+                    # print("\t\t I have changed ",searchedVar," in ",line2)
+                    line = line2    
+                
                 # print(" new value ",self.dict_of_Variables_to_change[searchedVar])
             
                 
@@ -739,14 +749,14 @@ class ClassToAnalyseCfile:
                 
             line = self.MergeLineInDifferentLines(tab)
             #print(self.nr_line,"\n",line[0:250],"\n......")
-            print("$"*100,self.nr_line,"\n",line,"\n"*2)
+            # print("$"*100,self.nr_line,"\n",line,"\n"*2)
             
             
             #tab_func =       re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1,}$',string)        
             # tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1}$',line)
             tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*\;{1}',line)                            
             if len(tab_func_proto)>0:
-                print(" ^prototype ",tab_func_proto)
+                print("^Correction in ^prototype ",tab_func_proto)
                             
                 #input(" func ")
                 #print(self.nr_line,"\n",line)
@@ -758,13 +768,13 @@ class ClassToAnalyseCfile:
                         #print(key)
 #                        line=re.sub(r'[\s]*'+key+r'[\s]*',dict_toChange[key],line)
                         line=re.sub(r'\b'+key+r'\b',dict_toChange[key],line)
-                        print(line)
+                        # print(line)
                         #input(" arg ")
             
-            tab_func_declaration = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*[\{]{1}[\s\S\{\}]*[\}]{1}$',line)
+            tab_func_declaration = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*[\{]{1}[\s\S\{\}]*[\}]{1}',line)
             if len(tab_func_declaration)>0:
-                print(" ^declaration ",tab_func_declaration)
-                print(line)
+                print("^Correction in ^declaration ",tab_func_declaration)
+                # print(line)
                 local_var_tab_dict ={}
                 tab_potential_local_var = re.findall(r'([\w]+[\s]+[\*]*[\s]*[\w]+)[\s]*[\=\;]{1}',line)
                 print("^*^ ", tab_potential_local_var )
@@ -846,7 +856,7 @@ class ClassToAnalyseCfile:
                     self.tab_if_equality.append(word+"\n")                
             self.nr_line +=1
             
-        self.tab_if_equality.append("\n\n how many if statements :"+str(len(self.tab_if_equality))+"\n" )   
+        self.tab_if_equality.append("\n\n how many if statements :"+str(len(self.tab_if_equality)) )   
             
 #############################################################################    
     
@@ -949,10 +959,24 @@ def main():
             #analyze.ShowCfile()
             analyze.AnalyzeAllIncludes()    
             print("\n"*10)
+            print("$"*100)
+            print("$"*100)
+            print("\t"*10," ANALYSIS of ",filename)
+            print("$"*100)
+            print("$"*100,"\n"*2)
 #            input(" key ")
+            
             analyze.FindAllTypedefVar()
+            
+            analyze.ShowAllVariablesToChange()
+            
             analyze.FindAllInstancesOfTypes() 
+            
+            analyze.ShowAllVariablesToChange()
+            
             tab = analyze.CorrectAllVariablesNames(analyze.tab_c)
+            
+            
             tab = analyze.CorrectAllFunctions(tab)  
             analyze.FindAllIfStatement(tab,"==")
             analyze.FindAllIfStatement(tab,"!=")
@@ -965,9 +989,7 @@ def main():
             
             
 #Lists all tables
-    print("\n"*5," all variable to change \n")
-    for key in analyze.dict_of_Variables_to_change.keys():        
-        print(key," -> ",analyze.dict_of_Variables_to_change[key])
+    analyze.ShowAllVariablesToChange()
         
     print("\n"*10," all includes files ")
     for key in AllIncludes_d.keys():
