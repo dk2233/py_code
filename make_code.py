@@ -85,7 +85,8 @@ AllFunctionArgument = {}
 
 AllIncludes_d={}
 
-
+global AllTypedefs
+AllTypedefs = []
 
 ######################################################
 # DEFINITIONS
@@ -112,18 +113,43 @@ class ClassToAnalyseCfile:
         self.dict_of_Variables_to_change=   {}
         self.tab_after_corrections=         []
         self.tab_if_equality            =   []
+        self.tab_all_comments           =   []
+        self.AllTypeDefArray                 =   []
         
+    def ChangeArrayToString(self,tab):        
+        self.nr_line = 0
+        string_all_lines = ""
+        while self.nr_line<len(tab):
+            string_all_lines +=tab[ self.nr_line ]
+            self.nr_line +=1        
+        return(string_all_lines)
+            
+    def ChangeStringToArray(self,string):
+        tab=[]
+        print(" changin string to array ")
+        print(string)
+        print(string.find("\n"))
+        while string.find("\n") > -1:
+            temp = string.partition("\n")
+            tab.append(temp[0])
+#            tab.append(temp[0]+temp[1])
+            string = temp[2]
+            
+        print(tab)    
+                
+        return tab
         
         
     def ShowCfile(self):
         for element in self.tab_c:
             print(element,end="")
         
-    def ShowAllVariablesToChange(self):    
-        print("\n"*5," all variable to change \n")
         
+    def ShowAllVariablesToChange(self):    
+        print("\n"*5," all variable to change \n")        
         for key in self.dict_of_Variables_to_change.keys():        
             print(key," -> ",self.dict_of_Variables_to_change[key])    
+        
         
     def CheckWhetherLineCommented(self,tab):
         """ this find all comments and return two strings - all line with strings together 
@@ -151,6 +177,156 @@ class ClassToAnalyseCfile:
         return(line_tab)       
     
     
+    
+    def FindAllTypedef_regexp(self,string):
+        tab_typedef_enum = re.findall(r'typedef[\s]+enum[\s]*\{[\s\S]+?\}\s*([\w]+);',string)
+        print(" typedef enum types ",tab_typedef_enum)
+        
+        for type_enum in tab_typedef_enum:
+            new_type_name, string = self.AddPrefixToVariable(type_enum,"_t",string)
+            if new_type_name!= type_enum:
+                self.dict_of_Variables_to_change[type_enum]=new_type_name
+            AllAnalysedVariableTypes_dict[type_enum]="_e"
+        
+        
+        for type1 in tab:
+            new_type_name, string = self.AddPrefixToVariable(type1,"_t",string)
+            if new_type_name!= type1:
+                self.dict_of_Variables_to_change[type1]=new_type_name
+        
+        #this doesnt work too good bc if we have struct inside of typedef it will finish on that definition
+        
+        tab_typedef= re.findall(r'typedef[\s]+(?:(?!enum)\w+)[\s]+\{[\s\S]+?\}\s*([\w]+)\;',string)
+        #search for all { and }
+#        for block_typedef in tab_typedef:
+#            tab_left = re.findall("\{",block_typedef)
+#            tab_right = re.findall("\}",block_typedef)
+#            number_of_left_bracet = len(
+        
+        
+        print(" typedef struct types ",tab_typedef)
+        tab_typedef_simple= re.findall(r'typedef[\s]+[\s\w\*\(\)\[\]]+?([\w]+)\s*\;',string)
+        print(" typedef non-struct types ",tab_typedef_simple)
+        
+        tab = tab_typedef_enum + tab_typedef_simple + tab_typedef
+        self.AllTypeDefArray += tab
+        
+        
+        #AllTypedefs
+        
+    def FindAllTypedef_enum_nonstruct(self,string):
+        ''' this method find in string all typedef enum and non struct simple one '''
+        tab_typedef_enum = re.findall(r'(typedef[\s]+enum[\s]*\{[\s\S]+?\}\s*([\w]+);)',string)
+        #print(" typedef enum types ",tab_typedef_enum)
+              
+        for type_enum in tab_typedef_enum:    
+            new_type_name, string = self.AddPrefixToVariable(type_enum[1],"_t",string)
+            if new_type_name!= type_enum[1]:
+                self.dict_of_Variables_to_change[type_enum[1]]=new_type_name
+            AllAnalysedVariableTypes_dict[type_enum[1]]="_e"
+            string = string.replace(type_enum[0],"")
+            self.AllTypeDefArray.append(type_enum[1])  
+        
+        
+        tab_typedef_simple= re.findall(r'(typedef[\s]+[\s\w\*\(\)\[\]]+?([\w]+)\s*\;)',string)
+        print(" typedef non-struct types ",tab_typedef_simple)
+        for type_nons in tab_typedef_simple:
+            new_type_name, string = self.AddPrefixToVariable(type_nons[1],"_t",string)
+            if new_type_name!= type_nons[1]:
+                self.dict_of_Variables_to_change[type_nons[1]]=new_type_name
+            string = string.replace(type_nons[0],"")
+            self.AllTypeDefArray.append(tab_typedef_simple[1])
+        
+#        tab_typedef= re.findall(r'typedef[\s]+struct[\s]*(?:(?:\{[\s\S]+?\}\s*[\w]+\;)|(\{[\s\S]+?(?:(?!typedef)[\s]*(struct[\s]*\{[\s\S]+?\}\s*[\w]+\;[\s\S]+?\}\s*[\w]+\;)))+)',string)
+#        print(" searching with regexp for structured typedefs ")
+#        for i in tab_typedef:
+#            print(i)
+#            input(" key ")
+        
+        file = open("aaa_test","w")
+        file.write(string)
+        file.close()
+        #input(" key ")  
+        return string
+    
+    
+    
+    
+    
+    def FindAllTypedefStruct_regexp(self,string):
+        
+        typedef_for_farther_analysis = []
+        
+        typedef_reg_struct = r'typedef\s+struct\s*\{[\s\S]+?\}\s*[\w]+\s*\;'
+        
+        tab_typedef= re.findall(r'(typedef\s+struct\s*\{[\s\S]+?\}\s*([\w]+)\s*\;)',string)        
+        print(" searching with regexp for structured typedefs ")
+        for i in tab_typedef:
+            #print(i[0])
+            print(i[1])
+            
+            if i[0].count("{") != i[0].count("}"):
+                print(i[0])
+                print(" not ok \{ not enclosed with \} ")
+                typedef_for_farther_analysis.append(i[0])
+                #input(" key ")
+            else:
+                new_type_name, aaaa = self.AddPrefixToVariable(i[1],"_t",string)
+                if new_type_name!= i[1]:
+                    self.dict_of_Variables_to_change[i[1]]=new_type_name
+                string = string.replace(i[0],"")
+        #for i in tab_typedef:    
+                
+        for type1 in typedef_for_farther_analysis:
+            ii = string.find(type1)
+            print(ii)
+#            tab = re.findall(r'([\s]*struct[\s]*\{[\s\S]+?\})',type1)
+            print("$"*100)
+            print(string)
+            print("$"*100)
+            print(type1)
+            tab = re.findall(r'('+typedef_reg_struct+r'\s*\w*\s*\{[\s\S]+?\}\s*([\w]+)\s*\;'+r')',string)
+            print("tab = ",tab[0][0])
+            if tab[0][0].count("{") != tab[0][0].count("}"):
+                
+                print(" STill not ok \{ not enclosed with \} Check your code")
+                sys.exit()                
+            else:
+                new_type_name, aaaa = self.AddPrefixToVariable(tab[0][1],"_t",string)
+                if new_type_name!= tab[0][1]:
+                    self.dict_of_Variables_to_change[tab[0][1]]=new_type_name
+                string = string.replace(tab[0][0],"")
+                #print(string)
+            #input(" key ")
+        return string
+        
+        
+    
+    def FindAllTypedefStruct(self,string):
+        tab = self.ChangeStringToArray(string)
+        #input(" key ")
+        self.nr_line = 0
+        while self.nr_line<len(tab):                
+            line = tab[self.nr_line]
+            #print(line)
+            #input(" key ")
+            #temp = re.findall(
+            if "typedef" in line and ';' in line and 'struct':
+                print(" searching variable of typedef struct")
+                print(line)
+                var = self.FindVariableinDefinition(line)
+                print(" var ",var)
+                
+                new_var,line  = self.AddPrefixToVariable(var,"_t",line)
+                if new_var != var:
+                    self.dict_of_Variables_to_change[var]=new_var
+            
+                self.nr_line +=1
+                continue
+            
+            self.nr_line +=1
+            
+        
     def FindVariableinDefinition(self,line):
         """ here I have to give line without any comments """
         
@@ -188,13 +364,19 @@ class ClassToAnalyseCfile:
     
     
     
+    def  RemoveAllCommentsFromString(self,string_with_c_code):
+        tab_comments = self.FindAllComments(string_with_c_code)
+        for block_to_remove in tab_comments:
+            # print(block_to_remove)
+            #string_with_c_code = re.sub(block_to_remove,"",string_with_c_code)
+            string_with_c_code = string_with_c_code.replace(block_to_remove,"")
+        return string_with_c_code
     
-        
-        
+    
+
     def FindAllTypedefVar(self):
         self.nr_line = 0
         while self.nr_line<len(self.tab_c):
-            
             line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
             if len(line_without_comment.strip())<2:
                 self.nr_line+=1 
@@ -219,10 +401,7 @@ class ClassToAnalyseCfile:
                 new_var,line  = self.AddPrefixToVariable(var,"_t",line)
                 if new_var != var:
                     self.dict_of_Variables_to_change[var]=new_var
-                    
-                #AllAnalysedVariableTypes_dict["typedef"],line)
-                # print(" var ",new_var)
-                # input(" key ")
+            
                 self.nr_line +=1
                 continue
             
@@ -430,8 +609,6 @@ class ClassToAnalyseCfile:
                 # newvar=re.sub()
                 # line= re.sub(r'\b'+searchedVar+r'\b',self.dict_of_Variables_to_change[searchedVar],line)
 
-    
-    
         return new_var,variable_name
     
     
@@ -461,7 +638,7 @@ class ClassToAnalyseCfile:
             print(" I am adding new variables to dictionary of ",new_var)
             
             line = line.replace(variable,new_var)
-            print("Line after change ",line)
+            #print("Line after change ",line)
             # input(" key ")
         else:
             print(" prefix ", prefix," already in variable ")
@@ -495,9 +672,7 @@ class ClassToAnalyseCfile:
     def  AnalyzeAllIncludes(self):
         self.nr_line = 0
         while self.nr_line<len(self.tab_c):
-            
             line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
-            
             if len(line_without_comment.strip())<2:
                 self.nr_line+=1 
                 continue
@@ -530,20 +705,27 @@ class ClassToAnalyseCfile:
                 file_c_p.close()
                 
                 inc = ClassToAnalyseCfile(tab)
-                inc.FindAllTypedefVar()
+                
+                string_all = inc.ChangeArrayToString(inc.tab_c)
+                string_WC = inc.RemoveAllCommentsFromString(string_all)
+                #inc.FindAllTypedef_regexp(string_WC)
+                string_WC = inc.FindAllTypedef_enum_nonstruct(string_WC)
+                inc.FindAllTypedefStruct_regexp(string_WC)
+                #inc.FindAllTypedefStruct(string_WC)
+                
+                
+                #inc.FindAllTypedefVar()  
+                self.AllTypeDefArray += inc.AllTypeDefArray
+                
                 inc.FindAllInstancesOfTypes() 
                 tab = inc.CorrectAllVariablesNames(inc.tab_c)
                 tab = inc.CorrectAllFunctions(tab)            
                 inc.SaveAllTab(filename+"_ch", tab)
             
                 AllIncludes_d[filename]=inc.dict_of_Variables_to_change
-                print(inc.dict_of_Variables_to_change)
-            
+                print(inc.dict_of_Variables_to_change)            
                 self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
-                
-#                    input(" key ")
-                        
-                
+
                 
             self.nr_line +=1
         
@@ -559,6 +741,78 @@ class ClassToAnalyseCfile:
         return isWord  
                 
 
+    def MergeLineInDifferentLinesWC(self,tab_wc):
+        """ method to connect all lines that are one statement, but divided during development for readibility 
+        
+        it sees that:
+        - line has ';' that is simple statement but couple of lines can be one statemen
+        - line can has function prototype it has () and ;
+        - line can start function definitions in that case we have more then two words + ()+ { and ending }
+        
+        this method use tabe that was created from removing all comments line from code
+        
+        """                       
+        temp = ""
+        self.tab_func = []
+        level_of_para = 0
+        level_of_para_func = 0
+        self.FunctionPrototype = False
+        wordCountBeforeParanthesis = 0
+        LineFinish = False
+        self.InFunctionDeclaration = False
+        
+        while not LineFinish and (self.nr_line< len(tab_wc)):
+            line_without_comment = tab_wc[self.nr_line]
+            #line_without_comment = line_without_comment.replace("("," ( ")
+            #line_without_comment = line_without_comment.replace(")"," ) ")
+            temp +=line_without_comment
+            self.tab_func.append(line_without_comment)
+        
+            if self.InFunctionDeclaration is False:
+                tab_func = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*\;{1}',temp)
+                if len(tab_func)>0:
+                    print(temp)
+                    print(" ##tab func ",tab_func)                
+                    self.FunctionPrototype = True
+                    # input(" prototype ")
+                    break
+                    
+            t1  = ( line_without_comment.strip() ).split()
+            for word in t1:
+                if self.InFunctionDeclaration == True:
+                    wordCountBeforeParanthesis = 0
+                    break
+                    
+                if "{" in word and "(" in temp and ")" in temp:
+                    if wordCountBeforeParanthesis >=2 :
+                        self.InFunctionDeclaration = True
+                        
+                if self.IsThisWord(word) == True:
+                    wordCountBeforeParanthesis +=1
+#                elif "(" in word:
+#                    wordCountBeforeParanthesis = 0
+#            
+            level_of_para += line_without_comment.count("{")
+            level_of_para -= line_without_comment.count("}")
+            print(level_of_para)
+            if ';' in line_without_comment and (level_of_para == 0) and self.InFunctionDeclaration == False:
+                LineFinish = True
+                break
+            if self.InFunctionDeclaration == True and (level_of_para == 0) and "}" in line_without_comment:
+                LineFinish = True
+                break        
+            self.nr_line +=1
+                      
+        print("*"*100)                    
+        print(" merge :",temp[0:100])
+        print("^"*100)
+        # if "(" in temp and ";" in temp and not '{' in temp:
+            # self.FunctionPrototype = True            
+            # print(temp.replace("\n"," "))
+            # temp = temp.replace("\n"," ")
+            # temp +="\n"
+            
+        return(temp)    
         
         
     
@@ -831,6 +1085,14 @@ class ClassToAnalyseCfile:
         
         file.close()
     
+    def  SaveString(self,filename, string):
+        file=open(filename,"w")
+        
+        file.write(string)
+        
+        file.close()
+    
+    
     def   FindAllIfStatement(self,tab,comparising):
         self.nr_line = 0
         
@@ -857,7 +1119,34 @@ class ClassToAnalyseCfile:
             self.nr_line +=1
             
         self.tab_if_equality.append("\n\n how many if statements :"+str(len(self.tab_if_equality)) )   
+
+    def  FindAllComments(self,string):
+        # self.nr_line = 0        
+        # while self.nr_line<len(tab):
+            # line,line_without_comment = self.CheckWhetherLineCommented(tab)            
+            # tab_statement = re.findall(r'(?:\/\*){1}[\s\w\d\S]+?(?:\*\/){1}',line)
+            # if len(tab_statement)>0:
+                # for word in tab_statement:                
+                    # self.tab_all_comments.append(word+"\n")
+            # tab_statement = re.findall(r'(?:\/\/){1}[\S\s]+?\n',line)
+            # if len(tab_statement)>0:
+                # for word in tab_statement:                
+                    # self.tab_all_comments.append(word+"\n")        
+            # self.nr_line +=1
+        #tab=[]    
+        tab_statement = re.findall(r'(?:(?:\/\/){1}[\S\s]+?\n)|(?:(?:\/\*){1}[\s\w\d\S]+?(?:\*\/){1})',string)        
+        #tab +=         
+        return tab_statement 
+        
+        
+    def  AddNewLineToAllArray(self, tab ):
+        for i in range(0,len(tab)):
+            tab[i] +="\n"
+        return tab
             
+            
+        
+
 #############################################################################    
     
     
@@ -953,35 +1242,52 @@ def main():
                 print("X"*100)
                 sys.exit()
                 
-            analyze = ClassToAnalyseCfile(tab_c)
-            #analyze.FindAllTypedefVar()            
-            #tab = analyze.RemoveAllCommentForAnalysis(analyze.tab_c)
-            #analyze.ShowCfile()
+            analyze = ClassToAnalyseCfile(tab_c)            
             analyze.AnalyzeAllIncludes()    
+            #analyze.ShowAllVariablesToChange()
+            #input(" key ")
+            
             print("\n"*10)
             print("$"*100)
             print("$"*100)
-            print("\t"*10," ANALYSIS of ",filename)
+            print(" "*10," ANALYSIS of ",filename)
             print("$"*100)
             print("$"*100,"\n"*2)
-#            input(" key ")
             
-            analyze.FindAllTypedefVar()
+            string_all  = analyze.ChangeArrayToString(analyze.tab_c)
+            string_WC   = analyze.RemoveAllCommentsFromString(string_all)
+            analyze.SaveString(filename+"_WC",string_WC)
+            
+            string_WC = analyze.FindAllTypedef_enum_nonstruct(string_WC)
+            analyze.FindAllTypedefStruct_regexp(string_WC)    
+            print(" all typedef ",analyze.AllTypeDefArray)
             
             analyze.ShowAllVariablesToChange()
+            input(" key ")
             
-            analyze.FindAllInstancesOfTypes() 
             
+            analyze.FindAllTypedefVar()            
+            analyze.ShowAllVariablesToChange()            
+            analyze.FindAllInstancesOfTypes()            
             analyze.ShowAllVariablesToChange()
+
             
             tab = analyze.CorrectAllVariablesNames(analyze.tab_c)
+            tab = analyze.CorrectAllFunctions(tab)
             
             
-            tab = analyze.CorrectAllFunctions(tab)  
+            
             analyze.FindAllIfStatement(tab,"==")
-            analyze.FindAllIfStatement(tab,"!=")
+            analyze.FindAllIfStatement(tab,"!=")            
             
-            analyze.SaveAllTab(filename+"_ch", tab)
+            
+            
+            
+            tab_comments = analyze.FindAllComments(string_all)
+            tab_comments = analyze.AddNewLineToAllArray(tab_comments)
+            analyze.SaveAllTab(filename+"_comments", tab_comments)
+            
+            analyze.SaveAllTab(filename+"_ch", tab)            
             analyze.SaveAllTab(filename+"_if", analyze.tab_if_equality)
             
             
