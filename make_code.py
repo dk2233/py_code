@@ -188,7 +188,6 @@ class ClassToAnalyseCfile:
                 self.dict_of_Variables_to_change[type_enum]=new_type_name
             AllAnalysedVariableTypes_dict[type_enum]="_e"
         
-        
         for type1 in tab:
             new_type_name, string = self.AddPrefixToVariable(type1,"_t",string)
             if new_type_name!= type1:
@@ -216,7 +215,7 @@ class ClassToAnalyseCfile:
         
     def FindAllTypedef_enum_nonstruct(self,string):
         ''' this method find in string all typedef enum and non struct simple one '''
-        tab_typedef_enum = re.findall(r'(typedef[\s]+enum[\s]*\{[\s\S]+?\}\s*([\w]+);)',string)
+        tab_typedef_enum = re.findall(r'(typedef[\s]+enum\s*\{[\s\S]+?\}\s*([\w]+)\s*;)',string)
         #print(" typedef enum types ",tab_typedef_enum)
               
         for type_enum in tab_typedef_enum:    
@@ -243,9 +242,9 @@ class ClassToAnalyseCfile:
 #            print(i)
 #            input(" key ")
         
-        file = open("aaa_test","w")
-        file.write(string)
-        file.close()
+#        file = open("aaa_test","w")
+#        file.write(string)
+#        file.close()
         #input(" key ")  
         return string
     
@@ -300,31 +299,7 @@ class ClassToAnalyseCfile:
             #input(" key ")
         return string
         
-        
     
-    def FindAllTypedefStruct(self,string):
-        tab = self.ChangeStringToArray(string)
-        #input(" key ")
-        self.nr_line = 0
-        while self.nr_line<len(tab):                
-            line = tab[self.nr_line]
-            #print(line)
-            #input(" key ")
-            #temp = re.findall(
-            if "typedef" in line and ';' in line and 'struct':
-                print(" searching variable of typedef struct")
-                print(line)
-                var = self.FindVariableinDefinition(line)
-                print(" var ",var)
-                
-                new_var,line  = self.AddPrefixToVariable(var,"_t",line)
-                if new_var != var:
-                    self.dict_of_Variables_to_change[var]=new_var
-            
-                self.nr_line +=1
-                continue
-            
-            self.nr_line +=1
             
         
     def FindVariableinDefinition(self,line):
@@ -380,8 +355,7 @@ class ClassToAnalyseCfile:
             line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
             if len(line_without_comment.strip())<2:
                 self.nr_line+=1 
-                continue
-            
+                continue     
             if any(element in line_without_comment for element in WordWithoutEndingCharacters):
                 if  "#define" in line:
                     while line.strip()[len(line.strip())-1] is ("\\"):
@@ -409,32 +383,35 @@ class ClassToAnalyseCfile:
             
             
     
-    def  FindAllInstancesOfTypes(self):
+    def  FindAllInstancesOfTypes(self,string_WC):
         ''' I find here all types and also types arguments in function '''    
         print("\n"*5,"&"*100)
         print(" Here I am in all variables finding")
         print("&"*100,"\n"*5)
+        
+        tab = self.ChangeStringToArray(string_WC)
+        
         self.nr_line=0  
-        while self.nr_line < len(self.tab_c):
-            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+        while self.nr_line < len(tab):
+            line_without_comment = tab[self.nr_line]  
+            line = line_without_comment
             if len(line_without_comment.strip())<2:
                 self.nr_line+=1 
                 continue
                 
             if any(element in line_without_comment for element in WordWithoutEndingCharacters):
-                self.tab_after_corrections.append(line)
-                if  "#define" in line:
+                self.tab_after_corrections.append(line_without_comment)
+                if  "#define" in line_without_comment:
                     while line.strip()[len(line.strip())-1] is ("\\"):
                         self.nr_line+=1 
                         line=self.tab_c[self.nr_line]                
                 self.nr_line+=1
                 continue  
                 
-            line = self.MergeLineInDifferentLines(self.tab_c)
+            line = self.MergeLineInDifferentLines(tab)
             # print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100, "\n\nself.InFunctionDeclaration ",self.FunctionPrototype )
             
-            if self.FunctionPrototype is True:
-                
+            if self.FunctionPrototype is True:           
                 func_name,tab_arg = self.PrototypeFuncAnalysis(line)
                 print(" !I found prototype! ",func_name)
                 print(" arguments :",tab_arg)
@@ -448,21 +425,17 @@ class ClassToAnalyseCfile:
                     
                     if var_new != var_old:
                         AllFunctionArgument[func_name].update({var_old:var_new})
-#                
-#                print(AllFunctionArgument)
             
             if self.InFunctionDeclaration == True or self.FunctionPrototype == True:
                 self.nr_line +=1 
                 continue
             
-            
             # print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100)
             
             #check if here is array
             tab_array_var =[]
-            regexp_array = r'[\w]*[\s]*(\w*)[[]'
+            regexp_array = r'[\w]*[\s]*(\w*)[\[]'
             temp_var = re.findall(regexp_array,line)
-            # if temp_var:
             for ii in temp_var:
                 tab_array_var.append(ii)
                 print(" this is array ",ii)
@@ -520,11 +493,10 @@ class ClassToAnalyseCfile:
                         if  variable_name in tab_array_var:
                             print("new prefix ",prefix)
                             prefix = prefix.replace("_",ARRAY_PREFIX)
-                        
+                            #input(" key ")
+                            
                         for ii in tab_pointers:
                             print(variable_name,ii)
-                            
-                            
                             
                             if variable_name in ii:
                                 print("@@@new prefix ",prefix)
@@ -612,19 +584,38 @@ class ClassToAnalyseCfile:
         return new_var,variable_name
     
     
+    
+    
+    
+    
+    
     def  AddPrefixToVariable(self,variable,prefix,line):
         #wrong prefix:
-        new_var = variable        
+        new_var = variable   
+        Marker = False
         #not real prefix - remove obsolete _xx (two letter max)
         if not (prefix in variable[(len(variable) - len(prefix)): len(variable)]):
             
             i=variable[len(variable)-HOW_MANY_LETTERS_FROM_WORD_END:].find("_")
             if i is not -1:
                 i = i + len(variable)-HOW_MANY_LETTERS_FROM_WORD_END
+                
+                #if prefix == "_ae":
+                if variable[i:] in prefix:
+                    print(variable[i:] , "  ", prefix)
+                    new_var = variable.replace(variable[i:],"")
+#                    input(" key array ")
+                    Marker = True
+                    
+        
                 for pref in AllAnalysedVariableTypes_dict.values():
+                    if Marker == True:
+                        break
+                        input(" True ")
                     # print(pref)
                     if pref == prefix:
                         continue
+                    
                     for pref2 in [pref,pref.replace("_","_p"),  pref.replace("_","_a") ]:
                         if pref2 in variable[i:]:                        
                             new_var = variable.replace(pref2,"")
@@ -649,6 +640,9 @@ class ClassToAnalyseCfile:
         return new_var,line
     
     
+    
+    
+    
     def PrototypeFuncAnalysis(self,string):
         """ to find all functions """
         
@@ -669,67 +663,54 @@ class ClassToAnalyseCfile:
             
             
             
-    def  AnalyzeAllIncludes(self):
-        self.nr_line = 0
-        while self.nr_line<len(self.tab_c):
-            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
-            if len(line_without_comment.strip())<2:
-                self.nr_line+=1 
+    def  AnalyzeAllIncludes(self,string):
+        
+        tab_includes = re.findall(r'\#include[\s]*\"([\w\.]+)\"',string)
+        print(tab_includes)
+        #input(" key ")
+               
+        for filename in    tab_includes: 
+            try:    
+                file_c_p = open(filename,"r")
+                print("!"*100)
+                print(" I opened ",filename) 
+                print("!"*100)
+                # input(" key ")
+            except:
+                print("X"*100)
+                print(" cannot open file :",filename,":")
+                print("X"*100)
+                AllIncludes_d[filename] = " not found "
+                # input(" key ")
+                self.nr_line +=1                    
                 continue
-                
-            if  "#include" in line:
-                filename = line.strip().split(r'"')[1]
-                print(filename)
-                
-                try:    
-                    file_c_p = open(filename,"r")
-                    print("!"*100)
-                    print(" I opened ",filename) 
-                    print("!"*100)
-                    # input(" key ")
-                except:
-                    print("X"*100)
-                    print(" cannot open file :",filename,":")
-                    print("X"*100)
-                    AllIncludes_d[filename] = " not found "
-                    # input(" key ")
-                    self.nr_line +=1                    
-                    continue
-                    
-                tab = []
+
+            tab = []
+            line = file_c_p.readline()
+
+            while(line):
+                tab.append(line)
                 line = file_c_p.readline()
+            file_c_p.close()
 
-                while(line):
-                    tab.append(line)
-                    line = file_c_p.readline()
-                file_c_p.close()
-                
-                inc = ClassToAnalyseCfile(tab)
-                
-                string_all = inc.ChangeArrayToString(inc.tab_c)
-                string_WC = inc.RemoveAllCommentsFromString(string_all)
-                #inc.FindAllTypedef_regexp(string_WC)
-                string_WC = inc.FindAllTypedef_enum_nonstruct(string_WC)
-                inc.FindAllTypedefStruct_regexp(string_WC)
-                #inc.FindAllTypedefStruct(string_WC)
-                
-                
-                #inc.FindAllTypedefVar()  
-                self.AllTypeDefArray += inc.AllTypeDefArray
-                
-                inc.FindAllInstancesOfTypes() 
-                tab = inc.CorrectAllVariablesNames(inc.tab_c)
-                tab = inc.CorrectAllFunctions(tab)            
-                inc.SaveAllTab(filename+"_ch", tab)
+            inc = ClassToAnalyseCfile(tab)
+
+            string_all = inc.ChangeArrayToString(inc.tab_c)
+            string_WC = inc.RemoveAllCommentsFromString(string_all)
+            string_WC = inc.FindAllTypedef_enum_nonstruct(string_WC)
+            string_WC = inc.FindAllTypedefStruct_regexp(string_WC)
             
-                AllIncludes_d[filename]=inc.dict_of_Variables_to_change
-                print(inc.dict_of_Variables_to_change)            
-                self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
+            self.AllTypeDefArray += inc.AllTypeDefArray
+            inc.FindAllInstancesOfTypes(string_WC) 
+            
+            tab = inc.CorrectAllVariablesNames(inc.tab_c)
+            tab = inc.CorrectAllFunctions(tab)            
+            inc.SaveAllTab(filename+"_ch", tab)
 
-                
-            self.nr_line +=1
-        
-        
+            AllIncludes_d[filename]=inc.dict_of_Variables_to_change
+            print(inc.dict_of_Variables_to_change)            
+            self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
+
         
         
         
@@ -1242,8 +1223,10 @@ def main():
                 print("X"*100)
                 sys.exit()
                 
-            analyze = ClassToAnalyseCfile(tab_c)            
-            analyze.AnalyzeAllIncludes()    
+            analyze = ClassToAnalyseCfile(tab_c)  
+            string_all  = analyze.ChangeArrayToString(analyze.tab_c)
+            string_WC   = analyze.RemoveAllCommentsFromString(string_all)
+            analyze.AnalyzeAllIncludes(string_WC)    
             #analyze.ShowAllVariablesToChange()
             #input(" key ")
             
@@ -1259,16 +1242,16 @@ def main():
             analyze.SaveString(filename+"_WC",string_WC)
             
             string_WC = analyze.FindAllTypedef_enum_nonstruct(string_WC)
-            analyze.FindAllTypedefStruct_regexp(string_WC)    
+            string_WC = analyze.FindAllTypedefStruct_regexp(string_WC)    
             print(" all typedef ",analyze.AllTypeDefArray)
             
             analyze.ShowAllVariablesToChange()
             input(" key ")
             
             
-            analyze.FindAllTypedefVar()            
-            analyze.ShowAllVariablesToChange()            
-            analyze.FindAllInstancesOfTypes()            
+            #analyze.FindAllTypedefVar()            
+    
+            analyze.FindAllInstancesOfTypes(string_WC)            
             analyze.ShowAllVariablesToChange()
 
             
