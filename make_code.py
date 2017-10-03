@@ -116,6 +116,7 @@ class ClassToAnalyseCfile:
         self.tab_all_comments           =   []
         self.AllTypeDefArray                 =   []
         
+        
     def ChangeArrayToString(self,tab):        
         self.nr_line = 0
         string_all_lines = ""
@@ -123,6 +124,7 @@ class ClassToAnalyseCfile:
             string_all_lines +=tab[ self.nr_line ]
             self.nr_line +=1        
         return(string_all_lines)
+            
             
     def ChangeStringToArray(self,string):
         tab=[]
@@ -133,10 +135,7 @@ class ClassToAnalyseCfile:
             temp = string.partition("\n")
             tab.append(temp[0])
 #            tab.append(temp[0]+temp[1])
-            string = temp[2]
-            
-        # print(tab)    
-                
+            string = temp[2]                
         return tab
         
         
@@ -178,40 +177,7 @@ class ClassToAnalyseCfile:
     
     
     
-    def FindAllTypedef_regexp(self,string):
-        tab_typedef_enum = re.findall(r'typedef[\s]+enum[\s]*\{[\s\S]+?\}\s*([\w]+);',string)
-        print(" typedef enum types ",tab_typedef_enum)
         
-        for type_enum in tab_typedef_enum:
-            new_type_name, string = self.AddPrefixToVariable(type_enum,"_t",string)
-            if new_type_name!= type_enum:
-                self.dict_of_Variables_to_change[type_enum]=new_type_name
-            AllAnalysedVariableTypes_dict[type_enum]="_e"
-        
-        for type1 in tab:
-            new_type_name, string = self.AddPrefixToVariable(type1,"_t",string)
-            if new_type_name!= type1:
-                self.dict_of_Variables_to_change[type1]=new_type_name
-        
-        #this doesnt work too good bc if we have struct inside of typedef it will finish on that definition
-        
-        tab_typedef= re.findall(r'typedef[\s]+(?:(?!enum)\w+)[\s]+\{[\s\S]+?\}\s*([\w]+)\;',string)
-        #search for all { and }
-#        for block_typedef in tab_typedef:
-#            tab_left = re.findall("\{",block_typedef)
-#            tab_right = re.findall("\}",block_typedef)
-#            number_of_left_bracet = len(
-        
-        
-        print(" typedef struct types ",tab_typedef)
-        tab_typedef_simple= re.findall(r'typedef[\s]+[\s\w\*\(\)\[\]]+?([\w]+)\s*\;',string)
-        print(" typedef non-struct types ",tab_typedef_simple)
-        
-        tab = tab_typedef_enum + tab_typedef_simple + tab_typedef
-        self.AllTypeDefArray += tab
-        
-        
-        #AllTypedefs
         
     def FindAllTypedef_enum_nonstruct(self,string):
         ''' this method find in string all typedef enum and non struct simple one '''
@@ -236,16 +202,6 @@ class ClassToAnalyseCfile:
             string = string.replace(type_nons[0],"")
             self.AllTypeDefArray.append(tab_typedef_simple[1])
         
-#        tab_typedef= re.findall(r'typedef[\s]+struct[\s]*(?:(?:\{[\s\S]+?\}\s*[\w]+\;)|(\{[\s\S]+?(?:(?!typedef)[\s]*(struct[\s]*\{[\s\S]+?\}\s*[\w]+\;[\s\S]+?\}\s*[\w]+\;)))+)',string)
-#        print(" searching with regexp for structured typedefs ")
-#        for i in tab_typedef:
-#            print(i)
-#            input(" key ")
-        
-#        file = open("aaa_test","w")
-#        file.write(string)
-#        file.close()
-        #input(" key ")  
         return string
     
     
@@ -254,10 +210,8 @@ class ClassToAnalyseCfile:
     
     def FindAllTypedefStruct_regexp(self,string):
         
-        typedef_for_farther_analysis = []
-        
-        typedef_reg_struct = r'typedef\s+struct\s*\{[\s\S]+?\}\s*[\w]+\s*\;'
-        
+        typedef_for_farther_analysis = []        
+        typedef_reg_struct = r'typedef\s+struct\s*\{[\s\S]+?\}\s*[\w]+\s*\;'        
         tab_typedef= re.findall(r'(typedef\s+struct\s*\{[\s\S]+?\}\s*([\w]+)\s*\;)',string)        
         print(" searching with regexp for structured typedefs ")
         for i in tab_typedef:
@@ -322,8 +276,7 @@ class ClassToAnalyseCfile:
             if new_type_name!= checking_whole_struct[0][1]:
                 self.dict_of_Variables_to_change[checking_whole_struct[0][1]]=new_type_name
             
-            # print(string)
-            # input(" after finding ")
+            
         return string
         
         
@@ -347,9 +300,11 @@ class ClassToAnalyseCfile:
             line_tab = self.DivideLine(line)
                 
             if "typedef" in line and ';' in line:
-                print(" searching variable of typedef ")
+                if isVerbose == True:
+                    print(" searching variable of typedef ")
                 var = self.FindVariableinDefinition(line)
-                print(" var ",var)
+                if isVerbose == True:
+                    print(" var ",var)
                 
                 new_var,line  = self.AddPrefixToVariable(var,"_t",line)
                 if new_var != var:
@@ -408,52 +363,22 @@ class ClassToAnalyseCfile:
     
     
 
-    def FindAllTypedefVar(self):
-        self.nr_line = 0
-        while self.nr_line<len(self.tab_c):
-            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
-            if len(line_without_comment.strip())<2:
-                self.nr_line+=1 
-                continue     
-            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
-                if  "#define" in line:
-                    while line.strip()[len(line.strip())-1] is ("\\"):
-                        self.nr_line+=1 
-                        line=self.tab_c[self.nr_line]
-                self.nr_line+=1
-                continue   
-                
-            line = self.MergeLineInDifferentLines(self.tab_c)
-            line_tab = self.DivideLine(line)
-                
-            if "typedef" in line and ';' in line:
-                print(" searching variable of typedef ")
-                var = self.FindVariableinDefinition(line)
-                print(" var ",var)
-                
-                new_var,line  = self.AddPrefixToVariable(var,"_t",line)
-                if new_var != var:
-                    self.dict_of_Variables_to_change[var]=new_var
-            
-                self.nr_line +=1
-                continue
-            
-            self.nr_line +=1
-            
             
     
     def  FindAllInstancesOfTypes(self,string_WC):
-        ''' I find here all types and also types arguments in function '''    
-        print("\n"*5,"&"*100)
-        print(" Here I am in all variables finding")
-        print("&"*100,"\n"*5)
+        ''' I find here all types and also types arguments in function ''' 
+        if isVerbose == True:
+            print("\n"*5,"&"*100)
+            print(" Here I am in all variables finding")
+            print("&"*100,"\n"*5)
         
         tab = self.ChangeStringToArray(string_WC)
         
         tab_variable_name = re.findall(r'[\w]+\s+(\w+_t)\s*\;',string_WC)
         #print(tab_variable_name)
         if len(tab_variable_name)>0:
-            print(tab_variable_name)
+            if isVerbose == True:
+                print(tab_variable_name)
             #input(" key ")
             for line in tab_variable_name:
                 if "_t" in line[-len("_t"):]:
@@ -461,8 +386,9 @@ class ClassToAnalyseCfile:
                     variable_name = line[:(-len("_t"))]
                     var2 = line.replace(line,variable_name)
                     self.dict_of_Variables_to_change[line]=var2
-                    print(" added ",line," to ",self.dict_of_Variables_to_change)
-                    print(line)
+                    if isVerbose == True:
+                        print(" added ",line," to ",self.dict_of_Variables_to_change)
+                        print(line)
 #                    input(" key ")
         
         
@@ -486,22 +412,30 @@ class ClassToAnalyseCfile:
                 continue  
                 
             line = self.MergeLineInDifferentLines(tab)
-            print(" after merging ")
-            # print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100, "\n\nself.InFunctionDeclaration ",self.FunctionPrototype )
-            #print(line)
-            
+                      
 
             if self.FunctionPrototype is True:           
                 func_name,tab_arg = self.PrototypeFuncAnalysis(line)
-                print(" !I found prototype! ",func_name)
-                print(" arguments :",tab_arg)
+                if isVerbose == True:
+                    print(" !I found prototype! ",func_name)
+                    print(" arguments :",tab_arg)
                 AllFunctionArgument[func_name]={}
                 for arg in tab_arg:
-                    print("^arg^ ",arg)                    
+                    if isVerbose == True:
+                        print("^arg^ ",arg)                    
                     if "void" in arg:
                         continue
                     
                     var_new, var_old = self.CheckPrefixforVariable(arg)
+                    
+                    if "_t" in var_new[-len("_t"):]:
+
+                        variable_name = var_new[:(-len("_t"))]
+                        var2 = var_new.replace(var_new,variable_name)
+                        self.dict_of_Variables_to_change[var_new]=var2
+                        if isVerbose == True:
+                            print(" added ",var_new," to ",self.dict_of_Variables_to_change)
+                        
                     
                     if var_new != var_old:
                         AllFunctionArgument[func_name].update({var_old:var_new})
@@ -518,34 +452,48 @@ class ClassToAnalyseCfile:
             
             #check if here is array
             tab_array_var =[]
-            regexp_array = r'[\w]*[\s]*(\w*)[\[]'
+            regexp_array = r'[\w]*[\s]*(\w*)\['
             temp_var = re.findall(regexp_array,line)
             for ii in temp_var:
                 tab_array_var.append(ii)
-                print(" this is array ",ii)
-                # input(" key ")
+                if isVerbose == True:
+                    print(" ->ARRAY this is array ",ii)
+                new_var = ii
+                if "_a" not in ii[-HOW_MANY_LETTERS_FROM_WORD_END:]:
+                    new_var = ii+"_a"
+                if ii != new_var:
+                    self.dict_of_Variables_to_change[ii]=new_var
+                    if isVerbose == True:
+                        print(" new ",ii)
+                    
             
             #line analysing to find all types    
             for searchedType in AllAnalysedVariableTypes_dict.keys():
+                #print(" i am searching in all types ")
                 tab_pointers=[]
                 regexp_const = searchedType+r'[\s\S]*const'+r'\s*\w*'
                 temp_var = re.findall(regexp_const,line)
                 if len(temp_var)>0:
-                    print(" all found regexp ",temp_var)
+                    if isVerbose == True:
+                        print(" all found regexp ",temp_var)
                 for ii in temp_var:
-                    print(" here is $const$ ",ii)
-                    print(" before change ",line)
+                    if isVerbose == True:
+                        print(" here is $const$ ",ii)
+                        print(" before change ",line)
                     ii2 = ii.replace('const','')
                     line=line.replace(ii,ii2)
-                    print(" after change ",line)
+                    if isVerbose == True:
+                        print(" after change ",line)
                 
                 regexp_pointer = searchedType+r'\s*[*]{1,4}[\s\S]\w*'
                 temp_var = re.findall(regexp_pointer,line)
                 for ii in temp_var:
-                    print(" here is $pointer$ ",ii)
+                    if isVerbose == True:
+                        print(" here is $pointer$ ",ii)
                     #here I remove * from line but know already that it is pointer
                     line=line.replace('*','')
-                    print(" here is $pointer$ ",ii, line)
+                    if isVerbose == True:
+                        print(" here is $pointer$ ",ii, line)
                     tab_pointers.append(ii)
                     #print(line)
                                 
@@ -560,36 +508,36 @@ class ClassToAnalyseCfile:
                 for res_re in temp_var:
                     temp_tab=res_re.split()
                     if len(temp_tab)>1:
-                        print(temp_var)
+                        if isVerbose == True:
+                            print(temp_var)
                         variable_name = temp_tab[1]
                         variable_type=temp_tab[0]
                         
-                        if "_t" in variable_name[-len("_t"):]:
-                            variable_name = variable_name[:(-len("_t"))]
-                            print(variable_name)
-                            input(" key ")
+                       
                         
                         if any(variable_name in func1 for func1 in temp_var_func):
                             # print(temp_var_func," check ",variable_name in func1) 
-                            print( variable_name, " this is function name do not correct like variables ")
+                            if isVerbose == True:
+                                print( variable_name, " this is function name do not correct like variables ")
                             continue
-                                                
-                        print(" type ",variable_type,", var =:",variable_name)                 
+                        if isVerbose == True:                        
+                            print(" type ",variable_type,", var =:",variable_name)                 
                         
                         prefix = AllAnalysedVariableTypes_dict[variable_type]  
                         
-                        print("^ARRAY^ is ",variable_name," in ",variable_name in tab_array_var)
+                        if isVerbose == True:
+                            print("^ARRAY^ is ",variable_name," in ",variable_name in tab_array_var)
                             
                         if  variable_name in tab_array_var:
-                            print("new prefix ",prefix)
+                            if isVerbose == True:
+                                print("new prefix ",prefix)
                             prefix = prefix.replace("_",ARRAY_PREFIX)
                             #input(" key ")
                             
-                        for ii in tab_pointers:
-                            print(variable_name,ii)
-                            
+                        for ii in tab_pointers:                            
                             if variable_name in ii:
-                                print("@@@new prefix ",prefix)
+                                if isVerbose == True:
+                                    print("@@@new prefix ",prefix)
                                 prefix = prefix.replace("_",POINTER_PREFIX)
                         
 
@@ -600,8 +548,8 @@ class ClassToAnalyseCfile:
                         new_var, aaa = self.AddPrefixToVariable(variable_name,prefix,res_re)
                         if new_var != variable_name:
                             self.dict_of_Variables_to_change[variable_name]=new_var
-                        
-                        print(" prefix for variable ",prefix, " new name ",new_var,"\n",aaa)
+                        if isVerbose == True:
+                            print(" prefix for variable ",prefix, " new name ",new_var,"\n",aaa)
                         
                         # input( " key")
                         # newvar=re.sub()
@@ -612,9 +560,9 @@ class ClassToAnalyseCfile:
     
     
     def  CheckPrefixforVariable(self,string):
-        print(string)
+        # print(string)
         string = re.sub(r'[\s]*const[\s]+'," ",string)    
-        print(string)    
+        # print(string)    
         #WHAT IS name
         #t_name = re.findall(r'[const[\s]*]?[\w]+[\s]+[\*]*[\s]*([\w]+)',string)
         t_name = re.findall(r'[\w]+[\s]+[\*]*[\s]*([\w]+)',string)
@@ -622,8 +570,9 @@ class ClassToAnalyseCfile:
         
         t_name = re.findall(r'[const[\s]*]?([\w]+)[\s]+[\*]*[\s]*'+variable_name, string)
         variable_type = t_name[0]
-        print(" regexp resul :",t_name)
-        print(" var name ",variable_name, " var type ",variable_type)
+        if isVerbose == True:
+            print("CheckPrefixforVariable regexp resul :",t_name)
+            print("CheckPrefixforVariable var name ",variable_name, " var type ",variable_type)
         
         #checking if array
         tab_array_var =[]
@@ -631,7 +580,8 @@ class ClassToAnalyseCfile:
         temp_var = re.findall(regexp_array,string)        
         for ii in temp_var:
             tab_array_var.append(ii)
-            print(" this is array ",ii)
+            if isVerbose == True:
+                print("CheckPrefixforVariable this is array ",ii)
             
         if variable_type  in AllAnalysedVariableTypes_dict.keys():
             prefix_proposed = AllAnalysedVariableTypes_dict[variable_type]
@@ -653,24 +603,25 @@ class ClassToAnalyseCfile:
             #print(string)
                             
         prefix =prefix_proposed
-        
-        print("^ARRAY^ is ",variable_name," in ",variable_name in tab_array_var)
+        if isVerbose == True:
+            print("^ARRAY^ is ",variable_name," in ",variable_name in tab_array_var)
 
         if  variable_name in tab_array_var:
             #print("new prefix ",prefix_proposed)
             prefix = prefix_proposed.replace("_",ARRAY_PREFIX)
 
         for ii in tab_pointers:
-            print(variable_name,ii)
+            # print(variable_name,ii)
             if variable_name in ii:
-                print("new prefix ",prefix)
+                if isVerbose == True:
+                    print("new prefix ",prefix)
                 prefix = prefix.replace("_",POINTER_PREFIX)
 
         new_var, aaa = self.AddPrefixToVariable(variable_name,prefix,string)
 #        if new_var != variable_name:
 #            self.dict_of_Variables_to_change[variable_name]=new_var
-
-        print(" $prefix$ for variable ",prefix, " new name ",new_var,"\n",aaa)
+        if isVerbose == True:
+            print(" $prefix$ for variable ",prefix, " new name ",new_var,"\n",aaa)
 
                 # input( " key")
                 # newvar=re.sub()
@@ -697,7 +648,8 @@ class ClassToAnalyseCfile:
                 
                 #if prefix == "_ae":
                 if variable[i:] in prefix:
-                    print(variable[i:] , "  ", prefix)
+                    if isVerbose == True:
+                        print(variable[i:] , "  ", prefix)
                     new_var = variable.replace(variable[i:],"")
 #                    input(" key array ")
                     Marker = True
@@ -720,14 +672,15 @@ class ClassToAnalyseCfile:
             #print("..",variable)    
             new_var = new_var+prefix
             
-                
-            print(" I am adding new variables to dictionary of ",new_var)
+            if isVerbose == True:    
+                print(" I am adding new variables to dictionary of ",new_var)
             
             line = line.replace(variable,new_var)
             #print("Line after change ",line)
             # input(" key ")
         else:
-            print(" prefix ", prefix," already in variable ")
+            if isVerbose == True:
+                print(" prefix ", prefix," already in variable ")
             
         if "enum" in line and "typedef" in line:
             AllAnalysedVariableTypes_dict[variable]="_e"
@@ -882,10 +835,11 @@ class ClassToAnalyseCfile:
                 LineFinish = True
                 break        
             self.nr_line +=1
-                      
-        print("*"*100)                    
-        print(" merge :",temp[0:100])
-        print("^"*100)
+         
+        if isVerbose == True:
+            print("*"*100)                    
+            print(" merge :",temp[0:100])
+            print("^"*100)
         # if "(" in temp and ";" in temp and not '{' in temp:
             # self.FunctionPrototype = True            
             # print(temp.replace("\n"," "))
@@ -935,8 +889,9 @@ class ClassToAnalyseCfile:
             if self.InFunctionDeclaration is False:
                 tab_func = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*\;{1}',temp_wc)
                 if len(tab_func)>0:
-                    print(temp)
-                    print(" ##tab func ",tab_func)                
+                    if isVerbose == True:
+                        print(temp)
+                        print(" ##tab func ",tab_func)                
                     self.FunctionPrototype = True
                     # input(" prototype ")
                     break
@@ -974,10 +929,11 @@ class ClassToAnalyseCfile:
                 break
                 
             self.nr_line +=1
-                      
-        print("*"*100)                    
-        print(" merge :",temp[0:])
-        print("^"*100,"\n"*4)
+            
+        if isVerbose == True:              
+            print("*"*100)                    
+            print(" merge :",temp[0:100])
+            print("^"*100,"\n"*4)
         # if "(" in temp and ";" in temp and not '{' in temp:
             # self.FunctionPrototype = True            
             # print(temp.replace("\n"," "))
@@ -1033,8 +989,9 @@ class ClassToAnalyseCfile:
             for searchedVar   in self.dict_of_Variables_to_change.keys():
                 
                 line2= re.sub(r'\b'+searchedVar+r'\b',self.dict_of_Variables_to_change[searchedVar],line)
-                if line != line2:    
-                    print(searchedVar)
+                if line != line2:
+                    if isVerbose == True:
+                        print(searchedVar)
                     # print("\t\t I have changed ",searchedVar," in ",line2)
                     line = line2    
                 
@@ -1090,7 +1047,8 @@ class ClassToAnalyseCfile:
             # tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1}$',line)
             tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*\;{1}',line)                            
             if len(tab_func_proto)>0:
-                print("^Correction in ^prototype ",tab_func_proto)
+                if isVerbose == True:
+                    print("^Correction in ^prototype ",tab_func_proto)
                             
                 #input(" func ")
                 #print(self.nr_line,"\n",line)
@@ -1107,20 +1065,23 @@ class ClassToAnalyseCfile:
             
             tab_func_declaration = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*[\{]{1}[\s\S\{\}]*[\}]{1}',line)
             if len(tab_func_declaration)>0:
-                print("^Correction in ^declaration ",tab_func_declaration)
+                if isVerbose == True:
+                    print("^Correction in ^declaration ",tab_func_declaration)
                 # print(line)
                 local_var_tab_dict ={}
                 tab_potential_local_var = re.findall(r'([\w]+[\s]+[\*]*[\s]*[\w]+)[\s]*[\=\;]{1}',line)
-                print("^*^ ", tab_potential_local_var )
+                if isVerbose == True:
+                    print("^*^ ", tab_potential_local_var )
                 for possible in tab_potential_local_var:  
                     for typet in AllAnalysedVariableTypes_dict.keys():
                         if typet in possible:
-                            print(typet, " in ",possible)
+                            if isVerbose == True:
+                                print(typet, " in ",possible)
                             #var = self.FindVariableinDefinition(possible)
                             new_var, var = self.CheckPrefixforVariable(possible)
                             local_var_tab_dict[var] = new_var
-                            
-                            print(" &&new var ",new_var," var ",var)
+                            if isVerbose == True:
+                                print(" &&new var ",new_var," var ",var)
                             line=re.sub(r'\b'+var+r'\b',new_var,line)            
                             #input(" key ")
                             break
@@ -1132,7 +1093,8 @@ class ClassToAnalyseCfile:
                     dict_toChange = AllFunctionArgument[tab_func_declaration[0]]
                     
                     for key in dict_toChange:
-                        print(" ^var to change^ ",key)
+                        if isVerbose == True:
+                            print(" ^var to change^ ",key)
 #                        line=re.sub(r'[\s]*'+key+r'[\s]*',dict_toChange[key],line)
                         # line=re.sub(key+r'[\s]*',dict_toChange[key],line)
                         line=re.sub(r'\b'+key+r'\b',dict_toChange[key],line)
@@ -1228,6 +1190,71 @@ class ClassToAnalyseCfile:
         
 
 #############################################################################    
+
+#NOT USED
+
+    def FindAllTypedef_regexp(self,string):
+        tab_typedef_enum = re.findall(r'typedef[\s]+enum[\s]*\{[\s\S]+?\}\s*([\w]+);',string)
+        print(" typedef enum types ",tab_typedef_enum)
+        
+        for type_enum in tab_typedef_enum:
+            new_type_name, string = self.AddPrefixToVariable(type_enum,"_t",string)
+            if new_type_name!= type_enum:
+                self.dict_of_Variables_to_change[type_enum]=new_type_name
+            AllAnalysedVariableTypes_dict[type_enum]="_e"
+        
+        for type1 in tab:
+            new_type_name, string = self.AddPrefixToVariable(type1,"_t",string)
+            if new_type_name!= type1:
+                self.dict_of_Variables_to_change[type1]=new_type_name        
+        #this doesnt work too good bc if we have struct inside of typedef it will finish on that definition        
+        tab_typedef= re.findall(r'typedef[\s]+(?:(?!enum)\w+)[\s]+\{[\s\S]+?\}\s*([\w]+)\;',string)        
+        print(" typedef struct types ",tab_typedef)
+        tab_typedef_simple= re.findall(r'typedef[\s]+[\s\w\*\(\)\[\]]+?([\w]+)\s*\;',string)
+        print(" typedef non-struct types ",tab_typedef_simple)        
+        tab = tab_typedef_enum + tab_typedef_simple + tab_typedef
+        self.AllTypeDefArray += tab
+  
+#############################################################################    
+
+#NOT USED
+  
+    def FindAllTypedefVar(self):
+        self.nr_line = 0
+        while self.nr_line<len(self.tab_c):
+            line,line_without_comment = self.CheckWhetherLineCommented(self.tab_c)
+            if len(line_without_comment.strip())<2:
+                self.nr_line+=1 
+                continue     
+            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
+                if  "#define" in line:
+                    while line.strip()[len(line.strip())-1] is ("\\"):
+                        self.nr_line+=1 
+                        line=self.tab_c[self.nr_line]
+                self.nr_line+=1
+                continue   
+                
+            line = self.MergeLineInDifferentLines(self.tab_c)
+            line_tab = self.DivideLine(line)
+                
+            if "typedef" in line and ';' in line:
+                print(" searching variable of typedef ")
+                var = self.FindVariableinDefinition(line)
+                print(" var ",var)
+                
+                new_var,line  = self.AddPrefixToVariable(var,"_t",line)
+                if new_var != var:
+                    self.dict_of_Variables_to_change[var]=new_var
+            
+                self.nr_line +=1
+                continue
+            
+            self.nr_line +=1
+            
+    
+  
+  
+#############################################################################    
     
     
 def MarkersHASH():
@@ -1247,6 +1274,7 @@ def   HelpInfo():
 def  DecodeArguments():
     global DIRECTORY
     global tabOfAnalyzedFiles 
+    global isVerbose
     SCRIPT_FOLDER = sys.argv[0]
     i=sys.argv[0].find(os.path.basename(__file__))
     SCRIPT_FOLDER = SCRIPT_FOLDER[0:i]
@@ -1257,6 +1285,7 @@ def  DecodeArguments():
     print(" python version ",sys.version_info)
     MarkersHASH()
     tabOfAnalyzedFiles = []
+    isVerbose = False
     
     for arguments in sys.argv:
         arguments = arguments.strip()
@@ -1266,8 +1295,11 @@ def  DecodeArguments():
             DIRECTORY = line_tab[1]
         elif "file=" in arguments:
             line_tab = arguments.split("=")
-
             tabOfAnalyzedFiles.append(line_tab[1])
+            
+        elif "-v" == arguments:
+            isVerbose = True
+            
     
     if (len(DIRECTORY)<1) and (len(tabOfAnalyzedFiles)<1):
         HelpInfo()
