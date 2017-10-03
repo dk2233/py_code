@@ -450,20 +450,38 @@ class ClassToAnalyseCfile:
         
         tab = self.ChangeStringToArray(string_WC)
         
+        tab_variable_name = re.findall(r'[\w]+\s+(\w+_t)\s*\;',string_WC)
+        #print(tab_variable_name)
+        if len(tab_variable_name)>0:
+            print(tab_variable_name)
+            #input(" key ")
+            for line in tab_variable_name:
+                if "_t" in line[-len("_t"):]:
+
+                    variable_name = line[:(-len("_t"))]
+                    var2 = line.replace(line,variable_name)
+                    self.dict_of_Variables_to_change[line]=var2
+                    print(" added ",line," to ",self.dict_of_Variables_to_change)
+                    print(line)
+#                    input(" key ")
+        
+        
         self.nr_line=0  
         while self.nr_line < len(tab):
-            line_without_comment = tab[self.nr_line]  
-            line = line_without_comment
-            if len(line_without_comment.strip())<2:
+            line = tab[self.nr_line]  
+            #line = line_without_comment
+            if len(line.strip())<2:
                 self.nr_line+=1 
                 continue
                 
-            if any(element in line_without_comment for element in WordWithoutEndingCharacters):
-                self.tab_after_corrections.append(line_without_comment)
-                if  "#define" in line_without_comment:
+            if any(element in line for element in WordWithoutEndingCharacters):
+                self.tab_after_corrections.append(line)
+                if  "#define" in line:
+                    #print(line)
                     while line.strip()[len(line.strip())-1] is ("\\"):
                         self.nr_line+=1 
-                        line=self.tab_c[self.nr_line]                
+                        line=tab[self.nr_line] 
+                        #print(line)
                 self.nr_line+=1
                 continue  
                 
@@ -471,20 +489,7 @@ class ClassToAnalyseCfile:
             print(" after merging ")
             # print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100, "\n\nself.InFunctionDeclaration ",self.FunctionPrototype )
             #print(line)
-            tab_variable_name = re.findall(r'[\w]+\s+(\w+)\s*\;',line)
-            #print(tab_variable_name)
-            if len(tab_variable_name)>0:
-                print(tab_variable_name, self.FunctionPrototype)
-                #input(" key ")
-                for line in tab_variable_name:
-                    if "_t" in line[-len("_t"):]:
-                        
-                        variable_name = line[:(-len("_t"))]
-                        var2 = line.replace(line,variable_name)
-                        self.dict_of_Variables_to_change[line]=var2
-                        print(" added ",line," to ",self.dict_of_Variables_to_change)
-                        print(line)
-#                    input(" key ")
+            
 
             if self.FunctionPrototype is True:           
                 func_name,tab_arg = self.PrototypeFuncAnalysis(line)
