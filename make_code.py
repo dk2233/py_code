@@ -390,8 +390,41 @@ class ClassToAnalyseCfile:
                         print(" added ",line," to ",self.dict_of_Variables_to_change)
                         print(line)
 #                    input(" key ")
-        
-        
+        tab_bitfields = re.findall(r'\w+\s+(\w+)\s*\:\s*(\d)\;',string_WC)
+        if len(tab_bitfields)>0:
+            if isVerbose == True:
+                print(tab_bitfields)
+                
+            for line in tab_bitfields:
+                suffix = "_b"+str(line[1])
+                #print(suffix, suffix not in line[-len(suffix):])
+                if suffix not in line[0][-len(suffix):]:
+                    tab_checks = ["_a","_t","_b","_p"] 
+                    for i in AllAnalysedVariableTypes_dict.values():
+                        #print(i)
+                        tab_checks.append(i)
+                    #print(tab_checks)
+                    
+                    var = line[0]
+                    #print(line[0])
+                    for checks in tab_checks:
+                        
+                        if line[0].find(checks)>(len(line[0])-len(checks)):
+                            var = line[0].replace(checks,"")
+                            #print(var)
+                    
+                    
+                    ttt = re.findall(r'\w+(_b\d*)',var)
+                    if len(ttt)>0:
+                        var = var.replace(ttt[0],"")
+                        
+                            
+                    var = var+suffix
+                    self.dict_of_Variables_to_change[line[0]]=var
+                    if isVerbose == True:
+                        print(" added ",line[0]," to ",self.dict_of_Variables_to_change)
+                        print(line)
+                #input(" key ")
         self.nr_line=0  
         while self.nr_line < len(tab):
             line = tab[self.nr_line]  
