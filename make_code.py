@@ -42,6 +42,7 @@ AllAnalysedVariableTypes_dict = {
     "boolean_t":        "_bo",
     "bool_t":           "_bo",
 }
+
 AllEquality_tab = {
     "=",
     "!",
@@ -176,7 +177,16 @@ class ClassToAnalyseCfile:
         return(line_tab)       
     
     
-    
+    def FindAllFunctionPrototype(self,string_WC):
+        '''it finds all function prototypes '''
+        print(" Finding all prototypes ")
+        tab_functions = re.findall(r'\w+\s+\w+\s*\([\w+\s*\,\*]+\)\s*\;',string_WC)
+        for i in tab_functions:
+            print(i)
+        # input(" key ")
+        
+        return tab_functions
+        
         
         
     def FindAllTypedef_enum_nonstruct(self,string):
@@ -780,8 +790,9 @@ class ClassToAnalyseCfile:
             string_WC = inc.RemoveAllCommentsFromString(string_all)
             string_WC2 = inc.FindAllTypedef_enum_nonstruct(string_WC)
             string_WC2 = inc.FindAllTypedefStruct_regexp(string_WC2)
+            inc.FindAllFunctionPrototype(string_WC2)
             print("X"*100,"\n"*5)
-            print(" Searching for all instances :")
+            print(" Searching for all instances in :",filename)
             print("X"*100,"\n"*5)
             self.AllTypeDefArray += inc.AllTypeDefArray
             inc.FindAllInstancesOfTypes(string_WC) 
