@@ -89,6 +89,8 @@ AllIncludes_d={}
 global AllTypedefs
 AllTypedefs = []
 
+AllFunctionsToAddExtern = []
+
 ######################################################
 # DEFINITIONS
 #####################################################	
@@ -177,14 +179,44 @@ class ClassToAnalyseCfile:
         return(line_tab)       
     
     
-    def FindAllFunctionPrototype(self,string_WC):
+    def FindAllFunctionPrototype(self,string_WC,filename):
         '''it finds all function prototypes '''
         print(" Finding all prototypes ")
-        tab_functions = re.findall(r'\w+\s+\w+\s*\([\w+\s*\,\*]+\)\s*\;',string_WC)
+        tab_functions = re.findall(r'\w*\s*\w+\s+(\w+)\s*\(([\w+\s*\,\*]+)\)\s*\;',string_WC)
         for i in tab_functions:
             print(i)
-        # input(" key ")
+            tab_arg = i[1].split(',')            
+            func_name = i[0]
+            
+            if isVerbose == True:
+                print(" !I found prototype! ",func_name)
+                print(" arguments :",tab_arg)
+                
+            AllFunctionArgument[func_name]={}
+            for arg in tab_arg:
+                if isVerbose == True:
+                    print("^arg^ ",arg)                    
+                if "void" in arg:
+                    continue
+
+                var_new, var_old = self.CheckPrefixforVariable(arg)
+                print(var_new, var_old)
+                if "_t" in var_new[-len("_t"):]:
+                    variable_name = var_new[:(-len("_t"))]
+                    var2 = var_new.replace(var_new,variable_name)
+                    self.dict_of_Variables_to_change[var_new]=var2
+                    if isVerbose == True:
+                        print(" added ",var_new," to ",self.dict_of_Variables_to_change)
+                        
+                if var_new != var_old:
+                    AllFunctionArgument[func_name].update({var_old:var_new})
+        tab_functions = re.findall(r'(\w*\s*\w+\s+(\w+)\s*\([\w+\s*\,\*]+\)\s*\;)',string_WC) 
         
+        if ".h" in filename:
+            for ii in tab_functions:
+                #print(" ii ",ii)
+                if not 'extern' in ii[0]:
+                    AllFunctionsToAddExtern.append(ii[1])
         return tab_functions
         
         
@@ -457,31 +489,31 @@ class ClassToAnalyseCfile:
             line = self.MergeLineInDifferentLines(tab)
                       
 
-            if self.FunctionPrototype is True:           
-                func_name,tab_arg = self.PrototypeFuncAnalysis(line)
-                if isVerbose == True:
-                    print(" !I found prototype! ",func_name)
-                    print(" arguments :",tab_arg)
-                AllFunctionArgument[func_name]={}
-                for arg in tab_arg:
-                    if isVerbose == True:
-                        print("^arg^ ",arg)                    
-                    if "void" in arg:
-                        continue
-                    
-                    var_new, var_old = self.CheckPrefixforVariable(arg)
-                    
-                    if "_t" in var_new[-len("_t"):]:
-
-                        variable_name = var_new[:(-len("_t"))]
-                        var2 = var_new.replace(var_new,variable_name)
-                        self.dict_of_Variables_to_change[var_new]=var2
-                        if isVerbose == True:
-                            print(" added ",var_new," to ",self.dict_of_Variables_to_change)
-                        
-                    
-                    if var_new != var_old:
-                        AllFunctionArgument[func_name].update({var_old:var_new})
+#            if self.FunctionPrototype is True:           
+#                func_name,tab_arg = self.PrototypeFuncAnalysis(line)
+#                if isVerbose == True:
+#                    print(" !I found prototype! ",func_name)
+#                    print(" arguments :",tab_arg)
+#                AllFunctionArgument[func_name]={}
+#                for arg in tab_arg:
+#                    if isVerbose == True:
+#                        print("^arg^ ",arg)                    
+#                    if "void" in arg:
+#                        continue
+#                    
+#                    var_new, var_old = self.CheckPrefixforVariable(arg)
+#                    
+#                    if "_t" in var_new[-len("_t"):]:
+#
+#                        variable_name = var_new[:(-len("_t"))]
+#                        var2 = var_new.replace(var_new,variable_name)
+#                        self.dict_of_Variables_to_change[var_new]=var2
+#                        if isVerbose == True:
+#                            print(" added ",var_new," to ",self.dict_of_Variables_to_change)
+#                        
+#                    
+#                    if var_new != var_old:
+#                        AllFunctionArgument[func_name].update({var_old:var_new})
             
             
             
@@ -556,7 +588,7 @@ class ClassToAnalyseCfile:
                         variable_name = temp_tab[1]
                         variable_type=temp_tab[0]
                         
-                       
+                               
                         
                         if any(variable_name in func1 for func1 in temp_var_func):
                             # print(temp_var_func," check ",variable_name in func1) 
@@ -789,20 +821,22 @@ class ClassToAnalyseCfile:
             string_all = inc.ChangeArrayToString(inc.tab_c)
             string_WC = inc.RemoveAllCommentsFromString(string_all)
             string_WC2 = inc.FindAllTypedef_enum_nonstruct(string_WC)
-            string_WC2 = inc.FindAllTypedefStruct_regexp(string_WC2)
-            inc.FindAllFunctionPrototype(string_WC2)
+            string_WC3 = inc.FindAllTypedefStruct_regexp(string_WC2)
+            inc.FindAllFunctionPrototype(string_WC2,filename)
             print("X"*100,"\n"*5)
             print(" Searching for all instances in :",filename)
             print("X"*100,"\n"*5)
             self.AllTypeDefArray += inc.AllTypeDefArray
-            inc.FindAllInstancesOfTypes(string_WC) 
+            inc.FindAllInstancesOfTypes(string_WC2) 
             
             AllIncludes_d[filename]=inc.dict_of_Variables_to_change
             print(inc.dict_of_Variables_to_change)            
             self.dict_of_Variables_to_change.update(inc.dict_of_Variables_to_change)
             
+            print(" extern : ",AllFunctionsToAddExtern)
+            
             tab = inc.CorrectAllVariablesNames(inc.tab_c)
-            tab = inc.CorrectAllFunctions(tab)            
+            tab = inc.CorrectAllFunctions(tab,filename)            
             inc.SaveAllTab(filename+"_ch", tab)
 
             
@@ -879,7 +913,7 @@ class ClassToAnalyseCfile:
                 LineFinish = True
                 break        
             self.nr_line +=1
-         
+             
         if isVerbose == True:
             print("*"*100)                    
             print(" merge :",temp[0:100])
@@ -1051,7 +1085,7 @@ class ClassToAnalyseCfile:
         
         
         
-    def CorrectAllFunctions(self,tab):
+    def CorrectAllFunctions(self,tab,filename):
         self.nr_line=0
         self.tab_after_corrections=[]
         while self.nr_line < len(tab):
@@ -1089,11 +1123,22 @@ class ClassToAnalyseCfile:
             
             #tab_func =       re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1,}$',string)        
             # tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1}$',line)
-            tab_func_proto = re.findall(r'[\w]+[\s]+([\w]+)[\s]*[(][\s]*[\w\s,\*\[\]]+[\s]*[)][\s]*\;{1}',line)                            
+            #tab_func_proto = re.findall(r'\w*\s*\w+\s+(\w+)\s*\(\s*[\w\s,\*\[\]]+[\s]*[)][\s]*\;{1}',line)      
+            tab_func_proto = re.findall(r'\w*\s*\w+\s+(\w+)\s*\([\w+\s*\,\*]+\)\s*\;',line)      
+            
             if len(tab_func_proto)>0:
                 if isVerbose == True:
                     print("^Correction in ^prototype ",tab_func_proto)
-                            
+                
+                
+                
+                if ".h" in filename:
+                    if tab_func_proto[0] in AllFunctionsToAddExtern:
+                        print("\t--------------->>>>>> adding extern in h to ",tab_func_proto[0])
+                        line = "extern "+line
+                    
+                
+                
                 #input(" func ")
                 #print(self.nr_line,"\n",line)
                 if tab_func_proto[0] in AllFunctionArgument.keys():
@@ -1427,6 +1472,7 @@ def main():
             
             string_WC2 = analyze.FindAllTypedef_enum_nonstruct(string_WC)
             string_WC2 = analyze.FindAllTypedefStruct_regexp(string_WC2)    
+            analyze.FindAllFunctionPrototype(string_WC2,filename)
             print(" all typedef ",analyze.AllTypeDefArray)
             
             analyze.ShowAllVariablesToChange()
@@ -1440,7 +1486,7 @@ def main():
 
             
             tab = analyze.CorrectAllVariablesNames(analyze.tab_c)
-            tab = analyze.CorrectAllFunctions(tab)
+            tab = analyze.CorrectAllFunctions(tab,filename)
             
             
             
