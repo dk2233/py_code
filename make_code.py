@@ -287,11 +287,15 @@ class ClassToAnalyseCfile:
                     AllFunctionsToCorrectPrefix[ii[1]] = MODULE_PREFIX+ii[1]
             
             else:
+                print(" %^%There is wrong prefix in ",ii[0],ii[1])
                 #there is module prefix but it maybe with wrong letter case
-                tab_prefix_not_ignorecase = re.findall(MODULE_PREFIX,ii[1])
+                tab_prefix_not_ignorecase = re.findall(r'\b'+MODULE_PREFIX+r'\w*',ii[1])
+                print(tab_prefix_not_ignorecase)
                 if len(tab_prefix_not_ignorecase)==0:
                     #it has wrong case remove that prefix and replace with good one
+                    
                     funcname1 = re.sub(r'\b'+MODULE_PREFIX,"",ii[1],1,re.I)
+                    print(" %++++%Adding new prefix ",funcname1)
                     AllFunctionsToCorrectPrefix[ii[1]] = MODULE_PREFIX+funcname1
                 
         return tab_functions
@@ -504,6 +508,7 @@ class ClassToAnalyseCfile:
         
         tab = self.ChangeStringToArray(string_WC)
         
+        #this is to remove all additional _t from variables
         tab_variable_name = re.findall(r'\w*\s*\**\s*\w+\s+(\w+_t)\s*\;',string_WC)
         #print(tab_variable_name)
         if len(tab_variable_name)>0:
@@ -599,7 +604,7 @@ class ClassToAnalyseCfile:
 #                    if var_new != var_old:
 #                        AllFunctionArgument[func_name].update({var_old:var_new})
             
-            
+            print(" function declaration or prototype ",self.InFunctionDeclaration,self.FunctionPrototype )
             
             if self.InFunctionDeclaration == True or self.FunctionPrototype == True:
                 self.nr_line +=1 
@@ -607,7 +612,7 @@ class ClassToAnalyseCfile:
             
             
             
-            # print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100)
+            print("\t"*10,self.nr_line,"\n","$"*100,"\n"*2,line,"\n"*2,"$"*100)
             
             #check if here is array
             tab_array_var =[]
