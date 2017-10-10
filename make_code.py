@@ -6,6 +6,7 @@ import re
 
 global SCRIPT_FOLDER
 global VERSION
+global Options_d
 
 #to find all function declaration
 #[\w]+[\s]+([\w])+[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1,}$
@@ -17,7 +18,10 @@ VERSION = "1.10.8"
 DIRECTORY=""
 START_COMMENT_BLOCK = "/*"
 END_COMMENT_BLOCK= "*/"
-MODULE_PREFIX   =   "Edr"
+Options_d = {}
+Options_d["prefix"]   =   "Edr"
+Options_d["function"] =   "global"
+
 #   if #include or #define there is no need for ; or {}
 # all comments are remove during c-file analysis
 
@@ -242,15 +246,15 @@ class ClassToAnalyseCfile:
         # regexp for variable definitions it wont find with = 
         # (?<!return)\w*\s*\w*\s*\w+\s+\w+\s*\;
         new_var_name = var_name
-        tab_prefix = re.findall(r'\b'+MODULE_PREFIX+r'\w*',var_name,re.I)
+        tab_prefix = re.findall(r'\b'+Options_d["prefix"]+r'\w*',var_name,re.I)
         if len(tab_prefix) > 0:
             
             #there is module prefix but it maybe with wrong letter case
-            tab_prefix_not_ignorecase = re.findall(MODULE_PREFIX,var_name)
+            tab_prefix_not_ignorecase = re.findall(Options_d["prefix"],var_name)
             if len(tab_prefix_not_ignorecase)==0:
                 #it has wrong case remove that prefix and replace with good one
-                funcname1 = re.sub(r'\b'+MODULE_PREFIX,"",var_name,1,re.I)
-                new_var_name = MODULE_PREFIX+funcname1
+                funcname1 = re.sub(r'\b'+Options_d["prefix"],"",var_name,1,re.I)
+                new_var_name = Options_d["prefix"]+funcname1
     
     
         return new_var_name, var_name
@@ -262,20 +266,20 @@ class ClassToAnalyseCfile:
         # regexp for variable definitions it wont find with = 
         # (?<!return)\w*\s*\w*\s*\w+\s+\w+\s*\;
         new_var_name = var_name
-        tab_prefix = re.findall(r'\b'+MODULE_PREFIX+r'\w*',var_name,re.I)
+        tab_prefix = re.findall(r'\b'+Options_d["prefix"]+r'\w*',var_name,re.I)
         if len(tab_prefix) == 0:
             #there is no EDR at all it has to be add in the beginning of function name
             #only if it has global scope
-            print(" adding prefix ",MODULE_PREFIX," to name ",var_name)
-            new_var_name = MODULE_PREFIX+var_name
+            print(" adding prefix ",Options_d["prefix"]," to name ",var_name)
+            new_var_name = Options_d["prefix"]+var_name
         
         else:
             #there is module prefix but it maybe with wrong letter case
-            tab_prefix_not_ignorecase = re.findall(MODULE_PREFIX,var_name)
+            tab_prefix_not_ignorecase = re.findall(Options_d["prefix"],var_name)
             if len(tab_prefix_not_ignorecase)==0:
                 #it has wrong case remove that prefix and replace with good one
-                funcname1 = re.sub(r'\b'+MODULE_PREFIX,"",var_name,1,re.I)
-                new_var_name = MODULE_PREFIX+funcname1
+                funcname1 = re.sub(r'\b'+Options_d["prefix"],"",var_name,1,re.I)
+                new_var_name = Options_d["prefix"]+funcname1
         #😅
     
         return new_var_name, var_name
@@ -312,6 +316,7 @@ class ClassToAnalyseCfile:
                 print(var_new, var_old)
                 #checking wrong prefix in variable
                 var_new, aaa= self.CheckIfPrefixInInstanceChange(var_new)
+                #var_new, aaa= self.CheckIfPrefixInInstance(var_new)
                 
                 if "_t" in var_new[-len("_t"):]:
                     variable_name = var_new[:(-len("_t"))]
@@ -341,25 +346,29 @@ class ClassToAnalyseCfile:
         #checking for correct function name            
         for ii in tab_functions:
             #ignorecase search
-            tab_prefix = re.findall(r'\b'+MODULE_PREFIX+r'\w*',ii[1],re.I)
+            tab_prefix = re.findall(r'\b'+Options_d["prefix"]+r'\w*',ii[1],re.I)
             if len(tab_prefix) == 0:
                 #there is no EDR at all it has to be add in the beginning of function name
                 #only if it has global scope
-                if ".h" in filename:
-                    print(" adding prefix ",MODULE_PREFIX," to function name ",ii[1])
-                    AllFunctionsToCorrectPrefix[ii[1]] = MODULE_PREFIX+ii[1]
+                if Options_d["function"]=="global":
+                    if ".h" in filename:
+                        print(" adding prefix ",Options_d["prefix"]," to function name ",ii[1])
+                        AllFunctionsToCorrectPrefix[ii[1]] = Options_d["prefix"]+ii[1]
+                elif Options_d["function"]=="all":
+                    print(" adding prefix ",Options_d["prefix"]," to function name ",ii[1])
+                    AllFunctionsToCorrectPrefix[ii[1]] = Options_d["prefix"]+ii[1]
             
             else:
                 print(" %^%There is wrong prefix in ",ii[0],ii[1])
                 #there is module prefix but it maybe with wrong letter case
-                tab_prefix_not_ignorecase = re.findall(r'\b'+MODULE_PREFIX+r'\w*',ii[1])
+                tab_prefix_not_ignorecase = re.findall(r'\b'+Options_d["prefix"]+r'\w*',ii[1])
                 print(tab_prefix_not_ignorecase)
                 if len(tab_prefix_not_ignorecase)==0:
                     #it has wrong case remove that prefix and replace with good one
                     
-                    funcname1 = re.sub(r'\b'+MODULE_PREFIX,"",ii[1],1,re.I)
+                    funcname1 = re.sub(r'\b'+Options_d["prefix"],"",ii[1],1,re.I)
                     print(" %++++%Adding new prefix ",funcname1)
-                    AllFunctionsToCorrectPrefix[ii[1]] = MODULE_PREFIX+funcname1
+                    AllFunctionsToCorrectPrefix[ii[1]] = Options_d["prefix"]+funcname1
                 
         return tab_functions
         
@@ -669,10 +678,28 @@ class ClassToAnalyseCfile:
         for ii in temp_array:
             if isVerbose == True:
                 print(" here is $ARRAY$ ",ii[1])
-            
+            self.CheckDataSuffixforVariable(ii[0],ii[1])
             self.AllArrays[ii[1]] = ii[0]
             #print(line)
         print("*-Arrays-*"*5)
+    
+    
+    
+    
+    def  CheckDataSuffixforVariable(self,variable_type,variable_name):
+        
+        if isVerbose == True:
+            
+            print("--->CheckDataSuffixforVariable var name ",variable_name, " var type ",variable_type)
+            
+        
+        if variable_type  in AllAnalysedVariableTypes_dict.keys():
+            prefix_proposed = AllAnalysedVariableTypes_dict[variable_type]
+        else:
+            prefix_proposed =""
+                
+        return prefix_proposed
+
     
         
             
@@ -715,21 +742,21 @@ class ClassToAnalyseCfile:
                 continue
         
             #check if here is array
-            # tab_array_var =[]
-#             regexp_array = r'\w*[\s]*(\w*)\['
-#             temp_var = re.findall(regexp_array,line)
-#             for ii in temp_var:
-#                 tab_array_var.append(ii)
-#                 AllArrays.append(ii)
-#                 if isVerbose == True:
-#                     print(" ->ARRAY this is array ",ii)
-#                 new_var = ii
-#                 if "_a" not in ii[-HOW_MANY_LETTERS_FROM_WORD_END:]:
-#                     new_var = ii+"_a"
-#                 if ii != new_var:
-#                     self.dict_of_Variables_to_change[ii]=new_var
-#                     if isVerbose == True:
-#                         print(" new ",ii)
+            tab_array_var =[]
+            regexp_array = r'\w*[\s]*(\w*)\['
+            temp_var = re.findall(regexp_array,line)
+            for ii in temp_var:
+                tab_array_var.append(ii)
+                AllArrays.append(ii)
+                if isVerbose == True:
+                    print(" ->ARRAY this is array ",ii)
+                new_var = ii
+                if "_a" not in ii[-HOW_MANY_LETTERS_FROM_WORD_END:]:
+                    new_var = ii+"_a"
+                if ii != new_var:
+                    self.dict_of_Variables_to_change[ii]=new_var
+                    if isVerbose == True:
+                        print(" new ",ii)
                     
             
             #line analysing to find all types    
@@ -808,7 +835,7 @@ class ClassToAnalyseCfile:
     
     
     
-    def  CheckDataSuffixforVariable(self,string):
+    def  CheckDataSuffixforVariableFunctions(self,string):
         print("$$ ",string," $$")
         string = re.sub(r'[\s]*const[\s]+'," ",string)    
         # print(string)    
@@ -1504,7 +1531,8 @@ def  DecodeArguments():
     global DIRECTORY
     global tabOfAnalyzedFiles 
     global isVerbose
-    global MODULE_PREFIX
+    global CHANGENAMEFORFUNCTIONS 
+    
     SCRIPT_FOLDER = sys.argv[0]
     i=sys.argv[0].find(os.path.basename(__file__))
     SCRIPT_FOLDER = SCRIPT_FOLDER[0:i]
@@ -1516,7 +1544,6 @@ def  DecodeArguments():
     MarkersHASH()
     tabOfAnalyzedFiles = []
     isVerbose = False
-    
     for arguments in sys.argv:
         arguments = arguments.strip()
         
@@ -1532,7 +1559,12 @@ def  DecodeArguments():
         
         elif "prefix=" in arguments:
             line_tab = arguments.split("=")
-            MODULE_PREFIX = line_tab[1]
+            #MODULE_PREFIX = 
+            Options_d["prefix"]=line_tab[1]
+        elif "-f=all" == arguments:
+            Options_d["function"]="all"
+        elif "-f=global" == arguments:
+            Options_d["function"]="global"    
     
     if (len(DIRECTORY)<1) and (len(tabOfAnalyzedFiles)<1):
         HelpInfo()
