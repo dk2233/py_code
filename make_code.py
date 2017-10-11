@@ -312,7 +312,7 @@ class ClassToAnalyseCfile:
                 if "void" in arg:
                     continue
 
-                var_new, var_old = self.CheckDataSuffixforVariable(arg)
+                var_new, var_old = self.CheckDataSuffixforVariableFunctions(arg)
                 print(var_new, var_old)
                 #checking wrong prefix in variable
                 var_new, aaa= self.CheckIfPrefixInInstanceChange(var_new)
@@ -678,8 +678,15 @@ class ClassToAnalyseCfile:
         for ii in temp_array:
             if isVerbose == True:
                 print(" here is $ARRAY$ ",ii[1])
-            self.CheckDataSuffixforVariable(ii[0],ii[1])
+            prefix = self.CheckDataSuffixforVariable(ii[0],ii[1])
             self.AllArrays[ii[1]] = ii[0]
+            if prefix == "":
+                prefix = "_a"
+            else:    
+                prefix = prefix.replace("_","_a")
+            
+            if prefix not in ii[1]:
+                self.dict_of_Variables_to_change[ii[1]]=ii[1]+prefix
             #print(line)
         print("*-Arrays-*"*5)
     
@@ -692,7 +699,6 @@ class ClassToAnalyseCfile:
             
             print("--->CheckDataSuffixforVariable var name ",variable_name, " var type ",variable_type)
             
-        
         if variable_type  in AllAnalysedVariableTypes_dict.keys():
             prefix_proposed = AllAnalysedVariableTypes_dict[variable_type]
         else:
@@ -1346,7 +1352,7 @@ class ClassToAnalyseCfile:
                             if isVerbose == True:
                                 print(typet, " in ",possible)
                             #var = self.FindVariableinDefinition(possible)
-                            new_var, var = self.CheckDataSuffixforVariable(possible)
+                            new_var, var = self.CheckDataSuffixforVariableFunctions(possible)
                             new_var, aaa= self.CheckIfPrefixInInstanceChange(new_var)
                             local_var_tab_dict[var] = new_var
                             if isVerbose == True:
