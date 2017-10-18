@@ -1,3 +1,6 @@
+#!/usr/bin/env python3.5
+
+
 import sys
 import os
 import shutil 
@@ -7,6 +10,13 @@ import re
 global SCRIPT_FOLDER
 global VERSION
 global Options_d
+
+
+# TODO
+#1.  Add method to check if function return same type variable as in declaration
+#2.  Add method to check function header and creating one if no existing
+#3. 
+
 
 #to find all function declaration
 #[\w]+[\s]+([\w])+[\s]*[(][\w\s,\*\[\]]+[)][\s]*;{1,}$
@@ -236,7 +246,7 @@ class ClassToAnalyseCfile:
         return line,line_wc
      
     def RemoveAllConfusingWords(self,fileString):
-        ''' this is to remove unnecessary words like const from all file'''
+        ''' this is to remove unnecessary words like const from all or other source code file'''
         
         fileString = re.sub(r'\b'+'const'+r'\b',"",fileString)
         return fileString
@@ -379,8 +389,9 @@ class ClassToAnalyseCfile:
         tab_typedef_enum = re.findall(r'(typedef[\s]+enum\s*\{[\s\S]+?\}\s*([\w]+)\s*;)',string)
         #print(" typedef enum types ",tab_typedef_enum)
               
-        for type_enum in tab_typedef_enum:    
-            new_type_name, old_name = self.AddPrefixToVariable(type_enum[1],"_t")
+        for type_enum in tab_typedef_enum:  
+            new_type_name = self.FindAllWrongSuffix(type_enum[1],"_t")  
+            new_type_name, old_name = self.AddPrefixToVariable(new_type_name,"_t")
             new_type_name, var= self.CheckIfPrefixInInstance(new_type_name)
             
             if new_type_name!= type_enum[1]:
@@ -394,7 +405,8 @@ class ClassToAnalyseCfile:
         tab_typedef_simple= re.findall(r'(typedef[\s]+[\s\w\*\(\)\[\]]+?([\w]+)\s*\;)',string)
         # print(" typedef non-struct types ",tab_typedef_simple)
         for type_nons in tab_typedef_simple:
-            new_type_name, older = self.AddPrefixToVariable(type_nons[1],"_t")
+            new_type_name = self.FindAllWrongSuffix(type_nons[1],"_t") 
+            new_type_name, older = self.AddPrefixToVariable(new_type_name,"_t")
             new_type_name, var= self.CheckIfPrefixInInstance(new_type_name)            
             print( new_type_name, " = > ",type_name)
             # input(" key ")
@@ -426,7 +438,8 @@ class ClassToAnalyseCfile:
                 typedef_for_farther_analysis.append(i[0])
                 #input(" key ")
             else:
-                new_type_name, previous1 = self.AddPrefixToVariable(i[1],"_t")
+                new_type_name = self.FindAllWrongSuffix(i[1],"_t") 
+                new_type_name, previous1 = self.AddPrefixToVariable(new_type_name,"_t")
                 new_type_name, type_name= self.CheckIfPrefixInInstance(new_type_name)
                 
                 if new_type_name!= i[1]:
@@ -510,7 +523,7 @@ class ClassToAnalyseCfile:
                 var = self.FindVariableinDefinition(line)
                 if isVerbose == True:
                     print(" var ",var)
-                
+                var = self.FindAllWrongSuffix(var,"_t") 
                 new_var,older  = self.AddPrefixToVariable(var,"_t")
                 new_var, type_name= self.CheckIfPrefixInInstance(new_var)
                 if new_var != var:
@@ -592,23 +605,28 @@ class ClassToAnalyseCfile:
             
             
             
-    def  FindAllWrongSuffix(self,string_WC):
+    def  FindAllWrongSuffix(self,variable_name,proper_prefix):
         ''' this should check whether variable doesnt has wrong suffix and remove it '''
         #this is to remove all additional _t from variables
-        tab_variable_name = re.findall(r'\w*\s*\**\s*\w+\s+(\w+_t)\s*\;',string_WC)
-        #print(tab_variable_name)
-        if len(tab_variable_name)>0:
-            if isVerbose == True:
-                print(tab_variable_name)
-            #input(" key ")
-            for line in tab_variable_name:
-                if "_t" in line[-len("_t"):]:
-                    variable_name = line[:(-len("_t"))]
-                    var2 = line.replace(line,variable_name)
-                    self.dict_of_Variables_to_change[line]=var2
-                    if isVerbose == True:
-                        print(" added ",line," to ",self.dict_of_Variables_to_change)
-                        print(line)
+        
+        for check_pref in AllAnalysedPrefixTable:
+            if check_pref == proper_prefix:
+                continue
+            print(" variable name ",variable_name," ",check_pref)    
+            if check_pref in variable_name[-len(check_pref):]:
+                
+                variable_name = variable_name[:(-len(check_pref))]
+                
+                #variable_name = variable_name.replace(line,variable_name)
+                
+                if isVerbose == True:
+                    print(" removed in ",variable_name," : ",check_pref)
+                    print(variable_name)
+                break    
+
+        return variable_name
+    
+    
     
     def CorrectAllBitfield(self,string_WC):
         tab_bitfields = re.findall(r'\w+\s+(\w+)\s*\:\s*(\d)\;',string_WC)
@@ -641,6 +659,8 @@ class ClassToAnalyseCfile:
                         print(" added ",line[0]," to ",self.dict_of_Variables_to_change)
                         print(line)
     
+    
+    
     def FindAllPointers(self,string_WC):
         print("*-poniters-*"*5)
         string_WC = self.RemoveAllConfusingWords(string_WC)
@@ -661,6 +681,8 @@ class ClassToAnalyseCfile:
                 prefix_proposed = AllAnalysedVariableTypes_dict[variable_type]
             else:
                 prefix_proposed =""
+            
+            #new_type_name = self.FindAllWrongSuffix(ii[1],prefix_proposed) 
                 
             if isVerbose == True:
                 print(variable_type, "-> &&&&& prefix &&&& proposed :",prefix_proposed)    
@@ -669,6 +691,8 @@ class ClassToAnalyseCfile:
             
         print("*-poniters-*"*5)
         #input(" key ")
+    
+    
     
     def FindAllArrays(self,string_WC):
         print("*-Arrays-*"*5)
@@ -679,14 +703,17 @@ class ClassToAnalyseCfile:
             if isVerbose == True:
                 print(" here is $ARRAY$ ",ii[1])
             prefix = self.CheckDataSuffixforVariable(ii[0],ii[1])
-            self.AllArrays[ii[1]] = ii[0]
+            
+            variable_name = self.FindAllWrongSuffix(ii[1],prefix)
+            
+            self.AllArrays[variable_name ] = ii[0]
             if prefix == "":
                 prefix = "_a"
             else:    
                 prefix = prefix.replace("_","_a")
             
-            if prefix not in ii[1]:
-                self.dict_of_Variables_to_change[ii[1]]=ii[1]+prefix
+            if prefix not in variable_name :
+                self.dict_of_Variables_to_change[variable_name]=variable_name +prefix
             #print(line)
         print("*-Arrays-*"*5)
     
@@ -716,7 +743,7 @@ class ClassToAnalyseCfile:
             print(" Here I am in all variables finding")
             print("&"*100,"\n"*5)
         
-        self.FindAllWrongSuffix(string_WC)
+        #self.FindAllWrongSuffix(string_WC)
         
         self.CorrectAllBitfield(string_WC)
         
@@ -1460,6 +1487,7 @@ class ClassToAnalyseCfile:
         print(" typedef enum types ",tab_typedef_enum)
         
         for type_enum in tab_typedef_enum:
+            type_enum = self.FindAllWrongSufix(type_enum,"_t")
             new_type_name, old = self.AddPrefixToVariable(type_enum,"_t")
             if new_type_name!= type_enum:
                 self.dict_of_Variables_to_change[type_enum]=new_type_name
@@ -1517,6 +1545,31 @@ class ClassToAnalyseCfile:
   
   
 #############################################################################    
+
+
+
+def CreateFullTableWithPrefix():
+    ''' this function creates all possible variations of prefix with 
+    additional '''
+    global AllAnalysedPrefixTable
+    
+    
+    
+    AllAnalysedPrefixTable = []
+    
+    
+    for pref in AllAnalysedVariableTypes_dict.values():
+        if pref != "":
+            AllAnalysedPrefixTable.append(pref)
+            AllAnalysedPrefixTable.append(pref.replace("_",ARRAY_PREFIX))
+            AllAnalysedPrefixTable.append(pref.replace("_",POINTER_PREFIX))
+            #AllAnalysedPrefixTable.append(pref.replace("_","_t"))        
+        
+
+    
+    AllAnalysedPrefixTable.append("_t")        
+    AllAnalysedPrefixTable.append(ARRAY_PREFIX)
+    AllAnalysedPrefixTable.append(POINTER_PREFIX)        
     
     
 def MarkersHASH():
@@ -1582,7 +1635,8 @@ def ClosingApp(startTime):
     sys.exit()
     
 def main():
-    startTime = time.time()		
+    startTime = time.time()	
+    CreateFullTableWithPrefix()	
     #have to give  folder to look into
     # DIRECTORY = sys.argv[1]
     DecodeArguments()
