@@ -149,6 +149,8 @@ class ClassToAnalyseCfile:
         self.AllPointers = {}
         self.AllArrays = {}
         
+        self.filename = filename
+        
         try:    
             file_c_p = open(filename,"r")
             
@@ -180,12 +182,15 @@ class ClassToAnalyseCfile:
             self.FindAllPointers(self.StringAllLinesWithoutComment)
             self.FindAllArrays(self.StringAllLinesWithoutComment)
            
-            self.FindAllInstancesOfTypes(string_WC2)
+            self.FindAllFileScopeInstancesOfKnownTypesWithRegexp(self.StringAllLinesWithoutComment)
+            
+            #self.FindAllInstancesOfTypes(string_WC2)
             self.FindAllFunctionPrototype(string_WC2,filename)
               
             self.tab_all_comments = self.FindAllComments(self.StringAllLines)
             self.FindAllIfStatement(self.tab_c,"==")
             self.FindAllIfStatement(self.tab_c,"!=")
+            
         #print(" heelllo ")
         
         
@@ -595,7 +600,7 @@ class ClassToAnalyseCfile:
         for check_pref in AllAnalysedPrefixTable:
             if check_pref == proper_prefix:
                 continue
-            print(" variable name ",variable_name," ",check_pref)    
+            #print(" variable name ",variable_name," ",check_pref)    
             if check_pref in variable_name[-len(check_pref):]:
                 
                 variable_name = variable_name[:(-len(check_pref))]
@@ -726,17 +731,35 @@ class ClassToAnalyseCfile:
         ''' I find here all types and also types arguments in function 
         but using regexp parsing whole c or h file''' 
             
-        if isVerbose == True:
-            print("\n"*5,"&"*100)
-            print(" Here I am in all variables finding")
-            print("&"*100,"\n"*5)
+        #if isVerbose == True:
+        
+        print("\n"*5)
+        print("&"*100)
+        print(" Here I am in all variables finding. using REGEXP ",self.filename)
+        print("&"*100,"\n"*5)
+        
         # for type in AllAnalysedVariableTypes_dict:
         #             tab_all_known = re.findall(type+r'\s+\w+\s*[\;|\=]',stringWC)
         
-        self.CorrectAllBitfield(string_WC)
-        tab = self.ChangeStringToArray(string_WC)    
-
-
+        self.CorrectAllBitfield(stringWC)
+        
+        stringWC = self.RemoveAllConfusingWords(stringWC)
+        tab_all_variables = re.findall(r'(\w+)\s+(\w+)[\;|\=]',stringWC)
+        for ii in tab_all_variables:
+            #print(ii)        
+            prefix = self.CheckDataSuffixforVariable(ii[0],ii[1])        
+            variable_name = self.FindAllWrongSuffix(ii[1],prefix)
+            
+            if prefix not in variable_name:
+                variable_name +=prefix
+                
+            print(ii," prefix ",prefix)
+            if ii[1] != variable_name:
+                self.dict_of_Variables_to_change[ii[1]]=variable_name
+                print(variable_name, "-> &&&&& prefix &&&& proposed :",prefix)  
+        print("&"*100,"\n"*5)    
+        #input(" key")    
+        
 
 
 
