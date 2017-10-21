@@ -174,19 +174,15 @@ class ClassToAnalyseCfile:
             self.StringAllLinesWithoutComment = self.RemoveAllCommentsFromString(self.StringAllLines)
                
             
-            
             string_WC2 = self.FindAllTypedef_enum_nonstruct(self.StringAllLinesWithoutComment)
             string_WC3 = self.FindAllTypedefStruct_regexp(string_WC2)
             
             self.FindAllPointers(self.StringAllLinesWithoutComment)
             self.FindAllArrays(self.StringAllLinesWithoutComment)
-            
-            
-            
+           
             self.FindAllInstancesOfTypes(string_WC2)
             self.FindAllFunctionPrototype(string_WC2,filename)
-            
-            
+              
             self.tab_all_comments = self.FindAllComments(self.StringAllLines)
             self.FindAllIfStatement(self.tab_c,"==")
             self.FindAllIfStatement(self.tab_c,"!=")
@@ -587,23 +583,10 @@ class ClassToAnalyseCfile:
     
     
     
-    
-    def FindAllInstancesOfKnownTypesWithRegexp(self,stringWC):
-        ''' I find here all types and also types arguments in function 
-        but using regexp parsing whole c or h file''' 
-            
-        if isVerbose == True:
-            print("\n"*5,"&"*100)
-            print(" Here I am in all variables finding")
-            print("&"*100,"\n"*5)
+
         
         
-        for type in AllAnalysedVariableTypes_dict:
         
-            tab_all_known = re.findall(type+r'\s+\w+\s*[\;|\=]',stringWC)
-            
-            
-            
             
     def  FindAllWrongSuffix(self,variable_name,proper_prefix):
         ''' this should check whether variable doesnt has wrong suffix and remove it '''
@@ -732,6 +715,30 @@ class ClassToAnalyseCfile:
             prefix_proposed =""
                 
         return prefix_proposed
+
+
+
+
+
+
+
+    def FindAllFileScopeInstancesOfKnownTypesWithRegexp(self,stringWC):
+        ''' I find here all types and also types arguments in function 
+        but using regexp parsing whole c or h file''' 
+            
+        if isVerbose == True:
+            print("\n"*5,"&"*100)
+            print(" Here I am in all variables finding")
+            print("&"*100,"\n"*5)
+        # for type in AllAnalysedVariableTypes_dict:
+        #             tab_all_known = re.findall(type+r'\s+\w+\s*[\;|\=]',stringWC)
+        
+        self.CorrectAllBitfield(string_WC)
+        tab = self.ChangeStringToArray(string_WC)    
+
+
+
+
 
     
         
